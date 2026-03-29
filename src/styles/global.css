@@ -451,11 +451,9 @@ textarea {
 }
 
 .weekly-section-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-text-tertiary);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-text-primary);
   margin-bottom: 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border-light);
@@ -558,8 +556,8 @@ textarea {
 
 .form-label {
   font-size: var(--font-size-sm);
-  font-weight: 500;
-  color: var(--color-text-secondary);
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
 /* --- Avatar --- */

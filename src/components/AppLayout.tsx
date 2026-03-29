@@ -92,11 +92,11 @@ export function AppLayout() {
 }
 
 function getPageTitle(pathname: string): string {
-  if (pathname === '/app') return 'Dashboard';
-  if (pathname === '/app/cases') return 'Cases';
-  if (pathname.startsWith('/app/cases/')) return 'Case Detail';
-  if (pathname === '/app/weekly') return 'Weekly Board';
-  if (pathname === '/app/notes') return 'Notes';
-  if (pathname.startsWith('/app/notes/')) return 'Note Editor';
+  if (pathname === '/app') return '대시보드';
+  if (pathname === '/app/cases') return '케이스';
+  if (pathname.startsWith('/app/cases/')) return '케이스 상세';
+  if (pathname === '/app/weekly') return '주간 보드';
+  if (pathname === '/app/notes') return '노트';
+  if (pathname.startsWith('/app/notes/')) return '노트 편집';
   return '';
 }

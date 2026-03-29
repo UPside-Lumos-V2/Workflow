@@ -1,10 +1,9 @@
 import type { CaseStatus, TaskStatus } from '../../types';
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  'open': { label: 'Open', className: 'badge badge-open' },
-  'in-progress': { label: 'In Progress', className: 'badge badge-in-progress' },
-  'review': { label: 'Review', className: 'badge badge-review' },
-  'closed': { label: 'Closed', className: 'badge badge-closed' },
+  'active': { label: '진행 중', className: 'badge badge-open' },
+  'review': { label: '검토', className: 'badge badge-review' },
+  'closed': { label: '완료', className: 'badge badge-closed' },
   'todo': { label: 'Todo', className: 'badge badge-open' },
   'done': { label: 'Done', className: 'badge badge-closed' },
 };

@@ -34,7 +34,7 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
 
       await onSubmit({
         title: title.trim(),
-        status: 'open',
+        status: 'active',
         priority,
         description: description.trim(),
         metadata,

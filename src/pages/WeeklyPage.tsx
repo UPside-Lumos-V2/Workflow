@@ -81,6 +81,94 @@ function ListEditor({
   );
 }
 
+// ── 체크리스트 편집기 (완료 토글 지원) ──
+// 규칙: "✓ " 접두사가 있으면 완료 상태
+function ChecklistEditor({
+  items,
+  onUpdate,
+  placeholder,
+}: {
+  items: string[];
+  onUpdate: (items: string[]) => void;
+  placeholder: string;
+}) {
+  const [newItem, setNewItem] = useState('');
+  const isDone = (item: string) => item.startsWith('✓ ');
+  const cleanText = (item: string) => item.replace(/^✓ /, '');
+
+  const toggleDone = (idx: number) => {
+    const updated = [...items];
+    updated[idx] = isDone(updated[idx])
+      ? cleanText(updated[idx])
+      : `✓ ${updated[idx]}`;
+    onUpdate(updated);
+  };
+
+  const handleAdd = () => {
+    if (!newItem.trim()) return;
+    onUpdate([...items, newItem.trim()]);
+    setNewItem('');
+  };
+
+  const handleRemove = (idx: number) => {
+    onUpdate(items.filter((_, i) => i !== idx));
+  };
+
+  const doneCount = items.filter(isDone).length;
+
+  return (
+    <div>
+      {items.map((item, idx) => (
+        <div key={idx} className="weekly-list-item" style={{ gap: 6 }}>
+          <button
+            onClick={() => toggleDone(idx)}
+            style={{
+              width: 18, height: 18, border: '2px solid var(--color-border)',
+              borderRadius: 4, background: isDone(item) ? 'var(--color-text-primary)' : 'transparent',
+              color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {isDone(item) ? '✓' : ''}
+          </button>
+          <span style={{
+            flex: 1,
+            textDecoration: isDone(item) ? 'line-through' : 'none',
+            color: isDone(item) ? 'var(--color-text-tertiary)' : 'inherit',
+          }}>
+            {cleanText(item)}
+          </span>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => handleRemove(idx)}
+            style={{ color: 'var(--color-text-tertiary)', padding: '2px 6px' }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      {doneCount > 0 && items.length > 0 && (
+        <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 4 }}>
+          {doneCount}/{items.length} 완료
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <input
+          type="text"
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          placeholder={placeholder}
+          style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}
+          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        />
+        <button className="btn btn-secondary btn-sm" onClick={handleAdd} disabled={!newItem.trim()}>
+          추가
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Blur 저장 Textarea (로컬 state → blur 시 DB 저장) ──
 function BlurSaveTextarea({
   value,
@@ -219,6 +307,31 @@ export function WeeklyPage() {
             />
           </Section>
 
+          {/* ── 관련 케이스 (참조용) ── */}
+          {currentWeekly.activeCaseIds.length > 0 && (
+            <Section title="이번 주 관련 케이스">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {currentWeekly.activeCaseIds.map((caseId) => {
+                  const c = cases.find((x) => x.id === caseId);
+                  if (!c) return null;
+                  return (
+                    <span
+                      key={caseId}
+                      style={{
+                        background: 'var(--color-bg-tertiary)',
+                        padding: '4px 10px',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: 'var(--font-size-xs)',
+                      }}
+                    >
+                      {c.title}
+                    </span>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
           {/* ── 팀원별 할 일 (케이스와 독립) ── */}
           <Section title="팀원별 할 일">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
@@ -232,7 +345,7 @@ export function WeeklyPage() {
                         <span className="text-tertiary"> ({tasks.length})</span>
                       )}
                     </div>
-                    <ListEditor
+                    <ChecklistEditor
                       items={tasks}
                       onUpdate={(updated) => updateMemberTasks(member.id, updated)}
                       placeholder="할 일 입력"

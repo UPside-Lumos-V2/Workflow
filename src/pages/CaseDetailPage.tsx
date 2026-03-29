@@ -16,7 +16,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'discussion', label: 'Discussion' },
 ];
 
-const STATUS_OPTIONS: CaseStatus[] = ['open', 'in-progress', 'review', 'closed'];
+const STATUS_OPTIONS: CaseStatus[] = ['active', 'review', 'closed'];
 
 export function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +24,7 @@ export function CaseDetailPage() {
   const { getById, edit, remove } = useCases();
   const [activeTab, setActiveTab] = useState<TabId>('tasks');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const caseData = getById(id ?? '');
 
@@ -46,7 +47,7 @@ export function CaseDetailPage() {
         onClick={() => navigate('/app/cases')}
         style={{ marginBottom: 16 }}
       >
-        ← Cases
+        ← 케이스 목록
       </button>
 
       {/* 헤더 */}
@@ -57,6 +58,17 @@ export function CaseDetailPage() {
           <button className="btn btn-secondary btn-sm" onClick={() => setShowEditModal(true)}>
             수정
           </button>
+          {confirmDelete ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-priority-high)' }}>정말 삭제?</span>
+              <button className="btn btn-sm" style={{ background: 'var(--color-priority-high)', color: '#fff' }} onClick={async () => { await remove(caseData.id); navigate('/app/cases'); }}>삭제</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>취소</button>
+            </div>
+          ) : (
+            <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-priority-high)' }} onClick={() => setConfirmDelete(true)}>
+              삭제
+            </button>
+          )}
         </div>
 
         {/* 상태 전환 */}
@@ -69,10 +81,9 @@ export function CaseDetailPage() {
                 className={`btn btn-sm ${caseData.status === s ? 'btn-primary' : 'btn-ghost'}`}
                 onClick={() => edit(caseData.id, { status: s })}
               >
-                {s === 'open' && 'Open'}
-                {s === 'in-progress' && 'In Progress'}
-                {s === 'review' && 'Review'}
-                {s === 'closed' && 'Closed'}
+                {s === 'active' && '진행 중'}
+                {s === 'review' && '검토'}
+                {s === 'closed' && '완료'}
               </button>
             ))}
           </div>
@@ -125,10 +136,6 @@ export function CaseDetailPage() {
           await edit(caseData.id, changes);
           setShowEditModal(false);
         }}
-        onDelete={async () => {
-          await remove(caseData.id);
-          navigate('/app/cases');
-        }}
       />
     </div>
   );
@@ -140,13 +147,11 @@ function EditCaseModal({
   onClose,
   caseData,
   onSave,
-  onDelete,
 }: {
   isOpen: boolean;
   onClose: () => void;
   caseData: { title: string; priority: CasePriority; description: string; metadata: Record<string, string> };
   onSave: (changes: { title: string; priority: CasePriority; description: string; metadata: Record<string, string> }) => Promise<void>;
-  onDelete: () => Promise<void>;
 }) {
   const [title, setTitle] = useState(caseData.title);
   const [priority, setPriority] = useState(caseData.priority);
@@ -154,7 +159,6 @@ function EditCaseModal({
   const [protocol, setProtocol] = useState(caseData.metadata?.protocol ?? '');
   const [chain, setChain] = useState(caseData.metadata?.chain ?? '');
   const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // 모달 열릴 때마다 현재 값으로 리셋
   const resetToCase = () => {
@@ -163,7 +167,6 @@ function EditCaseModal({
     setDescription(caseData.description);
     setProtocol(caseData.metadata?.protocol ?? '');
     setChain(caseData.metadata?.chain ?? '');
-    setConfirmDelete(false);
   };
 
   const handleSave = async () => {
@@ -193,24 +196,11 @@ function EditCaseModal({
       onClose={handleClose}
       title="케이스 수정"
       actions={
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-          <div>
-            {confirmDelete ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-priority-high)' }}>정말 삭제?</span>
-                <button className="btn btn-sm" style={{ background: 'var(--color-priority-high)', color: '#fff' }} onClick={onDelete}>삭제</button>
-                <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>취소</button>
-              </div>
-            ) : (
-              <button className="btn btn-ghost btn-sm" style={{ color: 'var(--color-priority-high)' }} onClick={() => setConfirmDelete(true)}>삭제</button>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={handleClose}>취소</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={!title.trim() || saving}>
-              {saving ? '저장 중...' : '저장'}
-            </button>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, width: '100%' }}>
+          <button className="btn btn-secondary" onClick={handleClose}>취소</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving ? '저장 중...' : '저장'}
+          </button>
         </div>
       }
     >

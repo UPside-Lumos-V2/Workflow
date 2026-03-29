@@ -38,7 +38,7 @@ export async function initSeedData(): Promise<void> {
     .from('lumos_cases')
     .insert({
       title: 'CrossCurve Flash Loan Exploit',
-      status: 'in-progress',
+      status: 'active',
       priority: 'high',
       description: 'CrossCurve 프로토콜 Flash Loan 공격 분석',
       metadata: { protocol: 'CrossCurve', chain: 'Ethereum', loss_usd: '1200000' },
@@ -83,9 +83,12 @@ export async function initSeedData(): Promise<void> {
   const today = new Date();
   const monday = new Date(today);
   monday.setDate(today.getDate() - today.getDay() + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
   await supabase.from('lumos_weeklies').insert({
-    week_label: `Week ${Math.ceil(today.getDate() / 7)} (${monday.getMonth() + 1}/${monday.getDate()} ~ ${monday.getMonth() + 1}/${monday.getDate() + 6})`,
+    week_label: `Week ${Math.ceil(today.getDate() / 7)} (${fmt(monday)} ~ ${fmt(sunday)})`,
     week_start: monday.toISOString().split('T')[0],
     goals: ['CrossCurve Exploit 분석 완료', '주간 보고서 작성'],
     active_case_ids: [cases.id],

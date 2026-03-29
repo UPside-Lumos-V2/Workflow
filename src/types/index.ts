@@ -4,7 +4,7 @@
 
 // --- Enums & Literals ---
 
-export type CaseStatus = 'open' | 'in-progress' | 'review' | 'closed';
+export type CaseStatus = 'active' | 'review' | 'closed';
 
 export type CasePriority = 'high' | 'medium' | 'low';
 

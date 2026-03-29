@@ -7,10 +7,9 @@ import type { CaseStatus } from '../types';
 
 const FILTER_TABS: Array<{ label: string; value: CaseStatus | 'all' }> = [
   { label: 'All', value: 'all' },
-  { label: 'Open', value: 'open' },
-  { label: 'In Progress', value: 'in-progress' },
-  { label: 'Review', value: 'review' },
-  { label: 'Closed', value: 'closed' },
+  { label: '진행 중', value: 'active' },
+  { label: '검토', value: 'review' },
+  { label: '완료', value: 'closed' },
 ];
 
 export function CasesPage() {

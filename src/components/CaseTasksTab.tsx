@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useTasks, useMembers } from '../hooks/useStore';
+import { useTasks } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
-import { MemberAvatar } from './shared';
 import type { TaskLabel, TaskStatus } from '../types';
 
 interface CaseTasksTabProps {
@@ -10,7 +9,6 @@ interface CaseTasksTabProps {
 
 export function CaseTasksTab({ caseId }: CaseTasksTabProps) {
   const { byCaseId, add, edit, remove } = useTasks();
-  const { items: members } = useMembers();
   const { currentMember } = useCurrentMember();
   const tasks = byCaseId(caseId);
 
@@ -53,7 +51,6 @@ export function CaseTasksTab({ caseId }: CaseTasksTabProps) {
       {/* Task 리스트 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {tasks.map((task) => {
-          const assignee = members.find((m) => m.id === task.assigneeId);
           return (
             <div
               key={task.id}
@@ -95,26 +92,6 @@ export function CaseTasksTab({ caseId }: CaseTasksTabProps) {
                 <option value="조사">조사</option>
                 <option value="운영">운영</option>
               </select>
-
-              {/* Assignee 선택 */}
-              <select
-                value={task.assigneeId ?? ''}
-                onChange={(e) => edit(task.id, { assigneeId: e.target.value || null })}
-                style={{
-                  padding: '2px 6px',
-                  fontSize: 'var(--font-size-xs)',
-                  width: 100,
-                  border: '1px solid var(--color-border-light)',
-                }}
-              >
-                <option value="">미배정</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-
-              {/* Assignee 아바타 */}
-              {assignee && <MemberAvatar member={assignee} size="sm" />}
 
               {/* 삭제 */}
               <button

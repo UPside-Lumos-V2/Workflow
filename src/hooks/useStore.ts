@@ -130,7 +130,7 @@ function useSupabaseTable<T extends { id: string }>(
         .single();
 
       if (err || !data) {
-        console.error('Update error:', err);
+        console.error('Update error:', err, 'row sent:', row);
         return null;
       }
       const entity = rowToEntity<T>(data as Record<string, unknown>);
