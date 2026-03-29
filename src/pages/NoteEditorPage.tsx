@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useNotes, useCases, useWeekly } from '../hooks/useStore';
+import { useNotes, useCases, useWeekly, useMembers } from '../hooks/useStore';
 
 export function NoteEditorPage() {
   const { id } = useParams<{ id: string }>();
@@ -8,19 +8,23 @@ export function NoteEditorPage() {
   const { getById, edit, remove } = useNotes();
   const { items: cases } = useCases();
   const { items: weeklies } = useWeekly();
-
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { items: members } = useMembers();
 
   const note = getById(id ?? '');
 
+  const [title, setTitle] = useState(note?.title ?? '');
+  const [content, setContent] = useState(note?.content ?? '');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // note 로딩 후 로컬 state 동기화 (외부 데이터 → 로컬 state)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (note) {
       setTitle(note.title);
       setContent(note.content);
     }
-  }, [note?.id]);
+  }, [note?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const sortedWeeklies = useMemo(
     () => [...weeklies].sort((a, b) => b.weekStart.localeCompare(a.weekStart)),
@@ -38,6 +42,8 @@ export function NoteEditorPage() {
     }
   };
 
+  const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? '';
+
   if (!note) {
     return (
       <div className="empty-state">
@@ -49,11 +55,33 @@ export function NoteEditorPage() {
     );
   }
 
+  const tagBadge = note.tags.includes('회의록')
+    ? { label: '회의록', color: '#1E3A65' }
+    : note.tags.includes('할 일')
+    ? { label: '할 일', color: '#9F34B4' }
+    : null;
+
   return (
     <div>
       <button className="btn btn-ghost" onClick={() => navigate('/app/notes')} style={{ marginBottom: 16 }}>
         ← 노트 목록
       </button>
+
+      {/* 태그 + 작성자 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        {tagBadge && (
+          <span style={{
+            fontSize: 'var(--font-size-xs)', fontWeight: 600,
+            padding: '3px 10px', borderRadius: 10,
+            background: tagBadge.color, color: '#fff',
+          }}>
+            {tagBadge.label}
+          </span>
+        )}
+        <span className="text-secondary" style={{ fontSize: 'var(--font-size-sm)' }}>
+          {getMemberName(note.authorId)}
+        </span>
+      </div>
 
       {/* 제목 */}
       <input

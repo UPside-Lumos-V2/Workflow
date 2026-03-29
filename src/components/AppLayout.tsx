@@ -18,7 +18,6 @@ export function AppLayout() {
       {/* Sidebar */}
       <aside className="app-sidebar">
         <div className="sidebar-logo">
-          <span>◆</span>
           <span>LUMOS</span>
         </div>
 

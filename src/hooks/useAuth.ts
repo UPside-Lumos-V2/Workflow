@@ -14,13 +14,12 @@ export function useAuth(): AuthState & { logout: () => Promise<void> } {
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
-    loading: true,
+    loading: !!supabase, // supabase 없으면 처음부터 loading: false
     isAllowed: false,
   });
 
   useEffect(() => {
     if (!supabase) {
-      setState((s) => ({ ...s, loading: false }));
       return;
     }
 

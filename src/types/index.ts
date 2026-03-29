@@ -78,12 +78,18 @@ export interface Discussion extends BaseEntity {
 
 // --- Weekly ---
 
+export interface MemberTask {
+  text: string;
+  noteId: string; // 연결된 노트 ID
+  done: boolean;
+}
+
 export interface Weekly extends BaseEntity {
   weekLabel: string; // "Week 5 (3/24 ~ 3/30)"
   weekStart: string; // ISO date — 주 시작일 (월요일)
   goals: string[]; // 이번 주 목표
   activeCaseIds: string[]; // 이번 주 집중 케이스
-  memberTasks: Record<string, string[]>; // { memberId: ["할 일1", "할 일2"] }
+  memberTasks: Record<string, MemberTask[]>; // { memberId: [{text, noteId, done}] }
   mentoringAgenda: string; // 멘토링 안건
   mentoringFeedback: string; // 멘토링 피드백
   mentoringActionItems: string[]; // 멘토링 후 할 일 목록

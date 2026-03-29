@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useWeekly, useMembers, useCases } from '../hooks/useStore';
+import { useNavigate } from 'react-router-dom';
+import { useWeekly, useMembers, useCases, useNotes } from '../hooks/useStore';
 import { EmptyState } from '../components/shared';
-import type { Weekly } from '../types';
+import type { Weekly, MemberTask } from '../types';
 
 /** 월요일 기준 주 시작일 (ISO) */
 function getWeekStart(date: Date = new Date()): string {
@@ -81,32 +82,31 @@ function ListEditor({
   );
 }
 
-// ── 체크리스트 편집기 (완료 토글 지원) ──
-// 규칙: "✓ " 접두사가 있으면 완료 상태
+// ── 체크리스트 편집기 (MemberTask 기반) ──
 function ChecklistEditor({
   items,
   onUpdate,
+  onAdd,
+  onItemClick,
   placeholder,
 }: {
-  items: string[];
-  onUpdate: (items: string[]) => void;
+  items: MemberTask[];
+  onUpdate: (items: MemberTask[]) => void;
+  onAdd: (text: string) => void;
+  onItemClick?: (task: MemberTask) => void;
   placeholder: string;
 }) {
   const [newItem, setNewItem] = useState('');
-  const isDone = (item: string) => item.startsWith('✓ ');
-  const cleanText = (item: string) => item.replace(/^✓ /, '');
 
   const toggleDone = (idx: number) => {
     const updated = [...items];
-    updated[idx] = isDone(updated[idx])
-      ? cleanText(updated[idx])
-      : `✓ ${updated[idx]}`;
+    updated[idx] = { ...updated[idx], done: !updated[idx].done };
     onUpdate(updated);
   };
 
   const handleAdd = () => {
     if (!newItem.trim()) return;
-    onUpdate([...items, newItem.trim()]);
+    onAdd(newItem.trim());
     setNewItem('');
   };
 
@@ -114,29 +114,33 @@ function ChecklistEditor({
     onUpdate(items.filter((_, i) => i !== idx));
   };
 
-  const doneCount = items.filter(isDone).length;
+  const doneCount = items.filter((t) => t.done).length;
 
   return (
     <div>
-      {items.map((item, idx) => (
+      {items.map((task, idx) => (
         <div key={idx} className="weekly-list-item" style={{ gap: 6 }}>
           <button
             onClick={() => toggleDone(idx)}
             style={{
               width: 18, height: 18, border: '2px solid var(--color-border)',
-              borderRadius: 4, background: isDone(item) ? 'var(--color-text-primary)' : 'transparent',
+              borderRadius: 4, background: task.done ? 'var(--color-text-primary)' : 'transparent',
               color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            {isDone(item) ? '✓' : ''}
+            {task.done ? '✓' : ''}
           </button>
-          <span style={{
-            flex: 1,
-            textDecoration: isDone(item) ? 'line-through' : 'none',
-            color: isDone(item) ? 'var(--color-text-tertiary)' : 'inherit',
-          }}>
-            {cleanText(item)}
+          <span
+            onClick={() => onItemClick?.(task)}
+            style={{
+              flex: 1,
+              textDecoration: task.done ? 'line-through' : 'none',
+              color: task.done ? 'var(--color-text-tertiary)' : 'inherit',
+              cursor: onItemClick ? 'pointer' : 'default',
+            }}
+          >
+            {task.text}
           </span>
           <button
             className="btn btn-ghost btn-sm"
@@ -215,6 +219,8 @@ export function WeeklyPage() {
   const { items: weeklies, add, edit } = useWeekly();
   const { items: members } = useMembers();
   const { items: cases } = useCases();
+  const { add: addNote } = useNotes();
+  const navigate = useNavigate();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart());
 
@@ -223,13 +229,31 @@ export function WeeklyPage() {
     [weeklies, currentWeekStart],
   );
 
+  // 기존 string[] 데이터 → MemberTask[] 자동 마이그레이션
+  const migrateTasks = (raw: unknown): MemberTask[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item) => {
+      if (typeof item === 'string') {
+        // 레거시: "✓ 텍스트" or "텍스트"
+        const done = item.startsWith('✓ ');
+        return { text: item.replace(/^✓ /, ''), noteId: '', done };
+      }
+      return item as MemberTask;
+    });
+  };
+
   const currentWeekly = useMemo(() => {
     if (!rawWeekly) return undefined;
+    const rawMT = (rawWeekly.memberTasks ?? {}) as Record<string, unknown[]>;
+    const memberTasks: Record<string, MemberTask[]> = {};
+    for (const [k, v] of Object.entries(rawMT)) {
+      memberTasks[k] = migrateTasks(v);
+    }
     return {
       ...rawWeekly,
       goals: rawWeekly.goals ?? [],
       activeCaseIds: rawWeekly.activeCaseIds ?? [],
-      memberTasks: (rawWeekly.memberTasks ?? {}) as Record<string, string[]>,
+      memberTasks,
       carryOver: rawWeekly.carryOver ?? [],
       mentoringAgenda: rawWeekly.mentoringAgenda ?? '',
       mentoringFeedback: rawWeekly.mentoringFeedback ?? '',
@@ -256,9 +280,29 @@ export function WeeklyPage() {
   };
 
   // 팀원별 할 일 업데이트
-  const updateMemberTasks = (memberId: string, tasks: string[]) => {
+  const updateMemberTasks = (memberId: string, tasks: MemberTask[]) => {
     const updated = { ...currentWeekly?.memberTasks, [memberId]: tasks };
     update({ memberTasks: updated });
+  };
+
+  // 할 일 추가 + 노트 자동 생성
+  const addMemberTask = async (memberId: string, text: string) => {
+    const newNote = await addNote({
+      title: text,
+      content: '',
+      status: 'draft',
+      authorId: memberId, // 항상 해당 팀원이 작성자
+      linkedCaseId: null,
+      linkedWeeklyId: currentWeekly?.id ?? null,
+      tags: ['할 일'],
+    });
+    const noteId = newNote?.id ?? '';
+    const existing = currentWeekly?.memberTasks[memberId] ?? [];
+    updateMemberTasks(memberId, [...existing, { text, noteId, done: false }]);
+  };
+
+  const handleTaskClick = (task: MemberTask) => {
+    if (task.noteId) navigate(`/app/notes/${task.noteId}`);
   };
 
   return (
@@ -348,6 +392,8 @@ export function WeeklyPage() {
                     <ChecklistEditor
                       items={tasks}
                       onUpdate={(updated) => updateMemberTasks(member.id, updated)}
+                      onAdd={(text) => addMemberTask(member.id, text)}
+                      onItemClick={handleTaskClick}
                       placeholder="할 일 입력"
                     />
                   </div>

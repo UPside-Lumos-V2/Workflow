@@ -52,7 +52,7 @@ export function DashboardPage() {
     let done = 0;
     for (const [memberId, tasks] of Object.entries(currentWeekly.memberTasks)) {
       if (tasks.length > 0) {
-        const memberDone = tasks.filter((t) => t.startsWith('✓ ')).length;
+        const memberDone = tasks.filter((t) => t.done).length;
         grouped[memberId] = { total: tasks.length, done: memberDone };
         total += tasks.length;
         done += memberDone;
@@ -105,11 +105,11 @@ export function DashboardPage() {
           {/* 우: 원형 진행률 */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 120 }}>
             <svg width="100" height="100" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="42" fill="none" stroke="var(--color-bg-tertiary)" strokeWidth="8" />
+              <circle cx="50" cy="50" r="42" fill="none" stroke="#DFB0E8" strokeWidth="8" />
               <circle
                 cx="50" cy="50" r="42"
                 fill="none"
-                stroke="var(--color-text-primary)"
+                stroke="#9a1db9ff"
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 42}`}
@@ -118,7 +118,7 @@ export function DashboardPage() {
                 style={{ transition: 'stroke-dashoffset 0.5s ease' }}
               />
               <text x="50" y="50" textAnchor="middle" dominantBaseline="central"
-                style={{ fontSize: '22px', fontWeight: 700, fill: 'var(--color-text-primary)' }}
+                style={{ fontSize: '22px', fontWeight: 700, fill: '#9F34B4' }}
               >
                 {progress}%
               </text>
@@ -149,7 +149,7 @@ export function DashboardPage() {
                 <span style={{ fontWeight: 600 }}>{caseStats[key]}</span>
               </div>
             ))}
-            <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
+            <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)', fontWeight: 600, color: '#9F34B4' }}>
               <span>전체</span>
               <span>{cases.length}</span>
             </div>
