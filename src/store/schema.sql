@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS lumos_weeklies (
   week_start DATE NOT NULL,
   goals TEXT[] DEFAULT '{}',
   active_case_ids UUID[] DEFAULT '{}',
+  member_tasks JSONB DEFAULT '{}',
   mentoring_agenda TEXT DEFAULT '',
   mentoring_feedback TEXT DEFAULT '',
   mentoring_action_items TEXT[] DEFAULT '{}',

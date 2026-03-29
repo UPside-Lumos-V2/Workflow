@@ -52,7 +52,7 @@ export interface Task extends BaseEntity {
   status: TaskStatus;
   label: TaskLabel;
   assigneeId: string | null; // Member.id
-  order: number; // 정렬 순서
+  sortOrder: number; // 정렬 순서 (DB: sort_order)
 }
 
 // --- Artifact ---
@@ -78,18 +78,15 @@ export interface Discussion extends BaseEntity {
 
 // --- Weekly ---
 
-export interface MentoringData {
-  agenda: string; // 멘토링 안건
-  feedback: string; // 멘토링 피드백
-  actionItems: string[]; // 액션 아이템
-}
-
 export interface Weekly extends BaseEntity {
-  weekLabel: string; // e.g., "Week 5 (3/24 ~ 3/30)"
+  weekLabel: string; // "Week 5 (3/24 ~ 3/30)"
   weekStart: string; // ISO date — 주 시작일 (월요일)
   goals: string[]; // 이번 주 목표
   activeCaseIds: string[]; // 이번 주 집중 케이스
-  mentoring: MentoringData;
+  memberTasks: Record<string, string[]>; // { memberId: ["할 일1", "할 일2"] }
+  mentoringAgenda: string; // 멘토링 안건
+  mentoringFeedback: string; // 멘토링 피드백
+  mentoringActionItems: string[]; // 멘토링 후 할 일 목록
   carryOver: string[]; // 다음 주로 넘기는 항목
 }
 

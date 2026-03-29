@@ -6,6 +6,9 @@ import { MemberSelect } from './components/MemberSelect';
 import { useAuth } from './hooks/useAuth';
 import { CurrentMemberProvider, useCurrentMember } from './hooks/useCurrentMember';
 import { initSeedData } from './store/seed';
+import { CasesPage } from './pages/CasesPage';
+import { CaseDetailPage } from './pages/CaseDetailPage';
+import { WeeklyPage } from './pages/WeeklyPage';
 
 // Placeholder pages — will be replaced in Phase 3~6
 function PlaceholderPage({ title }: { title: string }) {
@@ -36,9 +39,9 @@ function AuthenticatedApp() {
         <Route path="/" element={<Navigate to="/app" replace />} />
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<PlaceholderPage title="Dashboard" />} />
-          <Route path="cases" element={<PlaceholderPage title="Cases" />} />
-          <Route path="cases/:id" element={<PlaceholderPage title="Case Detail" />} />
-          <Route path="weekly" element={<PlaceholderPage title="Weekly Board" />} />
+          <Route path="cases" element={<CasesPage />} />
+          <Route path="cases/:id" element={<CaseDetailPage />} />
+          <Route path="weekly" element={<WeeklyPage />} />
           <Route path="notes" element={<PlaceholderPage title="Notes" />} />
           <Route path="notes/:id" element={<PlaceholderPage title="Note Editor" />} />
         </Route>

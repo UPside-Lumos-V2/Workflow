@@ -3,10 +3,10 @@ import { useCurrentMember } from '../hooks/useCurrentMember';
 import { signOut } from '../lib/auth';
 
 const NAV_ITEMS = [
-  { to: '/app', label: 'Dashboard', icon: '📊', exact: true },
-  { to: '/app/cases', label: 'Cases', icon: '🔍' },
-  { to: '/app/weekly', label: 'Weekly', icon: '📅' },
-  { to: '/app/notes', label: 'Notes', icon: '📝' },
+  { to: '/app', label: '대시보드', exact: true },
+  { to: '/app/cases', label: '케이스' },
+  { to: '/app/weekly', label: '주간 보드' },
+  { to: '/app/notes', label: '노트' },
 ];
 
 export function AppLayout() {
@@ -23,7 +23,7 @@ export function AppLayout() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="sidebar-section-title">Navigation</div>
+          <div className="sidebar-section-title">메뉴</div>
           {NAV_ITEMS.map((item) => {
             const isActive = item.exact
               ? location.pathname === item.to
@@ -35,7 +35,6 @@ export function AppLayout() {
                 to={item.to}
                 className={() => `sidebar-link ${isActive ? 'active' : ''}`}
               >
-                <span>{item.icon}</span>
                 <span>{item.label}</span>
               </NavLink>
             );

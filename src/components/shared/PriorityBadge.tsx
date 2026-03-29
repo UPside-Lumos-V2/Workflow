@@ -1,8 +1,8 @@
 import type { CasePriority } from '../../types';
 
 const PRIORITY_CONFIG: Record<CasePriority, { label: string; className: string }> = {
-  high: { label: '🔴 High', className: 'badge badge-high' },
-  medium: { label: '🟡 Medium', className: 'badge badge-medium' },
+  high: { label: 'High', className: 'badge badge-high' },
+  medium: { label: 'Medium', className: 'badge badge-medium' },
   low: { label: 'Low', className: 'badge badge-low' },
 };
 

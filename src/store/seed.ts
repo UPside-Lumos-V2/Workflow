@@ -8,6 +8,7 @@ const SEED_MEMBERS = [
   { name: 'Wi11y', role_description: '' },
   { name: 'Wiimdy', role_description: '' },
   { name: 'Yham', role_description: '' },
+  { name: 'Zeroluck', role_description: 'mentor' }
 ];
 
 export async function initSeedData(): Promise<void> {
