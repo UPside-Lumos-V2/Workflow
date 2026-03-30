@@ -1,7 +1,7 @@
 import type { MeetingSummary } from '../types';
 import { buildMeetingPrompt } from './prompts';
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
 
 /**
  * Gemini API로 회의록 내용을 요약하여 MeetingSummary를 반환

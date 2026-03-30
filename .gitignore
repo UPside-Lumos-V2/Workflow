@@ -28,3 +28,6 @@ dist-ssr
 .env.local
 .env.example
 .vercel
+
+#참조 파일
+참조
