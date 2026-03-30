@@ -1,8 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotes, useCases, useWeekly, useMembers } from '../hooks/useStore';
+import { useCurrentMember } from '../hooks/useCurrentMember';
+import { useNotePresence, getMemberColor } from '../hooks/useNotePresence';
 import { summarizeMeetingNote } from '../lib/gemini';
 import { SummaryPreviewModal } from '../components/SummaryPreviewModal';
+import { BlockEditor } from '../components/BlockEditor';
 import type { MeetingSummary } from '../types';
 
 export function NoteEditorPage() {
@@ -12,12 +15,21 @@ export function NoteEditorPage() {
   const { items: cases } = useCases();
   const { items: weeklies, edit: editWeekly } = useWeekly();
   const { items: members } = useMembers();
+  const { currentMember } = useCurrentMember();
 
   const note = getById(id ?? '');
+
+  // 멤버 색상
+  const memberIndex = currentMember ? members.findIndex(m => m.id === currentMember.id) : 0;
+  const memberColor = getMemberColor(memberIndex);
+
+  // 실시간 편집 참여자 표시
+  const activeEditors = useNotePresence(note?.id, currentMember, memberColor);
 
   const [title, setTitle] = useState(note?.title ?? '');
   const [content, setContent] = useState(note?.content ?? '');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const editorRef = useRef<any>(null);
 
   // 요약 관련 state
   const [summarizing, setSummarizing] = useState(false);
@@ -56,7 +68,7 @@ export function NoteEditorPage() {
 
   // ── 요약하기 ──
   const isMeetingNote = note?.tags.includes('회의록') ?? false;
-  const canSummarize = isMeetingNote && content.length >= 100;
+  const canSummarize = isMeetingNote && (content.length >= 50 || (editorRef.current?.document?.length ?? 0) > 1);
 
   const handleSummarize = async () => {
     if (!canSummarize) return;
@@ -71,7 +83,16 @@ export function NoteEditorPage() {
     setSummaryError('');
     try {
       const memberNames = members.map((m) => m.name);
-      const result = await summarizeMeetingNote(content, transcript, memberNames);
+      // BlockNote → markdown 변환하여 LLM에 전달
+      let textContent = content;
+      if (editorRef.current) {
+        try {
+          textContent = await editorRef.current.blocksToMarkdownLossy(editorRef.current.document);
+        } catch {
+          // fallback: raw content
+        }
+      }
+      const result = await summarizeMeetingNote(textContent, transcript, memberNames);
       setSummaryResult(result);
     } catch (err) {
       setSummaryError(err instanceof Error ? err.message : '요약 중 오류 발생');
@@ -250,22 +271,32 @@ export function NoteEditorPage() {
         )}
       </div>
 
-      {/* 본문 */}
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        onBlur={() => { if (content !== note.content) save({ content }); }}
-        placeholder="내용을 작성하세요"
-        style={{
-          width: '100%',
-          minHeight: 400,
-          resize: 'vertical',
-          fontSize: 'var(--font-size-base)',
-          lineHeight: 1.7,
-          border: '1px solid var(--color-border-light)',
-          borderRadius: 'var(--radius-md)',
-          padding: 16,
+      {/* 편집 중인 사용자 표시 */}
+      {activeEditors.length > 0 && (
+        <div className="active-editors">
+          {activeEditors.map((e) => (
+            <span key={e.name} className="editor-avatar" style={{ background: e.color }}>
+              {e.name.charAt(0)}
+            </span>
+          ))}
+          <span className="editor-label">{activeEditors.map(e => e.name).join(', ')} 편집 중</span>
+        </div>
+      )}
+
+      {/* 본문 — BlockNote 에디터 (실시간 협업) */}
+      <BlockEditor
+        initialContent={note.content}
+        onChange={(json) => {
+          setContent(json);
+          save({ content: json });
         }}
+        editorRef={editorRef}
+        placeholder="내용을 작성하세요... (/ 로 명령어)"
+        collaboration={currentMember ? {
+          noteId: note.id,
+          userName: currentMember.name,
+          userColor: memberColor,
+        } : undefined}
       />
 
       {/* 📎 요약하기 (회의록 전용) */}

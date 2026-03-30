@@ -115,6 +115,31 @@ export function NotesPage() {
 
   const preview = (content: string) => {
     if (!content) return '내용 없음';
+    // Block JSON인 경우 텍스트만 추출
+    try {
+      const blocks = JSON.parse(content);
+      if (Array.isArray(blocks)) {
+        const extractText = (items: unknown[]): string => {
+          return items
+            .map((block: any) => {
+              const inline = block?.content;
+              if (Array.isArray(inline)) {
+                return inline
+                  .map((c: any) => (typeof c === 'string' ? c : c?.text ?? ''))
+                  .join('');
+              }
+              return '';
+            })
+            .filter(Boolean)
+            .join(' ');
+        };
+        const text = extractText(blocks).trim();
+        if (text) return text.slice(0, 80) + (text.length > 80 ? '...' : '');
+        return '내용 없음';
+      }
+    } catch {
+      // plain text fallback
+    }
     return content.slice(0, 80) + (content.length > 80 ? '...' : '');
   };
 
