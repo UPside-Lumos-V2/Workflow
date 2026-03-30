@@ -98,11 +98,36 @@ export function NoteEditorPage() {
       tags: ['회의록'],
     });
 
-    // 2. 주간보드에 반영 (append 방식) — 연결된 주간 우선, 없으면 최신
+    // 2. 주간보드에 반영 (append 방식) — 연결된 주간 우선, 없으면 현재 날짜 기준 주차
+    const findCurrentWeekly = () => {
+      // 현재 날짜의 주 시작일 계산
+      const now = new Date();
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      const weekStartDate = new Date(now);
+      weekStartDate.setDate(diff);
+      weekStartDate.setHours(0, 0, 0, 0);
+      const todayWeekStart = weekStartDate.toISOString().slice(0, 10);
+
+      // 현재 주차와 일치하는 weekly 찾기
+      const currentWeek = weeklies.find((w) => w.weekStart === todayWeekStart);
+      if (currentWeek) return currentWeek;
+
+      // 없으면 현재 날짜 이전의 가장 가까운 주차
+      const pastWeeks = weeklies
+        .filter((w) => w.weekStart <= todayWeekStart)
+        .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
+      return pastWeeks[0] ?? sortedWeeklies[0];
+    };
+
     const targetWeekly = note.linkedWeeklyId
-      ? weeklies.find((w) => w.id === note.linkedWeeklyId) ?? sortedWeeklies[0]
-      : sortedWeeklies[0];
+      ? weeklies.find((w) => w.id === note.linkedWeeklyId) ?? findCurrentWeekly()
+      : findCurrentWeekly();
     const currentWeekly = targetWeekly;
+
+    console.log('[요약반영] targetWeekly:', currentWeekly?.id, currentWeekly?.weekStart);
+    console.log('[요약반영] note.linkedWeeklyId:', note.linkedWeeklyId);
+
     if (currentWeekly) {
       const existingGoals = currentWeekly.goals ?? [];
       const newGoals = edited.goals.filter((g) => !existingGoals.includes(g));
@@ -129,7 +154,7 @@ export function NoteEditorPage() {
         done: false,
       }));
 
-      editWeekly(currentWeekly.id, {
+      const patch = {
         goals: [...existingGoals, ...newGoals],
         mentoringFeedback: newFeedback,
         mentoringActionItems: [...existingActions, ...newActions],
@@ -138,7 +163,12 @@ export function NoteEditorPage() {
           ...existingTasks,
           unassigned: [...unassigned, ...newTaskItems],
         },
-      });
+      };
+      console.log('[요약반영] patch:', patch);
+      const result = await editWeekly(currentWeekly.id, patch);
+      console.log('[요약반영] editWeekly result:', result);
+    } else {
+      console.warn('[요약반영] currentWeekly가 없습니다! weeklies.length=', weeklies.length);
     }
 
     setSummaryResult(null);
