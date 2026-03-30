@@ -14,6 +14,8 @@ export function NotesPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<NoteTab>('전체');
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
 
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? '';
 
@@ -102,7 +104,7 @@ export function NotesPage() {
           <button
             key={tab}
             className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => { setActiveTab(tab); setPage(1); }}
           >
             {tab}
           </button>
@@ -113,7 +115,7 @@ export function NotesPage() {
       <input
         type="text"
         value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
         placeholder="노트 검색"
         style={{ marginBottom: 16, width: '100%', maxWidth: 320 }}
       />
@@ -125,41 +127,65 @@ export function NotesPage() {
           onAction={search ? undefined : handleCreateNote}
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {filtered.map((note) => {
-            const badge = getTagBadge(note.tags);
-            return (
-              <div
-                key={note.id}
-                className="card"
-                style={{ padding: '14px 18px', cursor: 'pointer' }}
-                onClick={() => navigate(`/app/notes/${note.id}`)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  {badge && (
-                    <span style={{
-                      fontSize: 'var(--font-size-xs)', fontWeight: 600,
-                      padding: '2px 8px', borderRadius: 10,
-                      background: badge.color, color: '#fff',
-                    }}>
-                      {badge.label}
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE).map((note) => {
+              const badge = getTagBadge(note.tags);
+              return (
+                <div
+                  key={note.id}
+                  className="card"
+                  style={{ padding: '14px 18px', cursor: 'pointer' }}
+                  onClick={() => navigate(`/app/notes/${note.id}`)}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                    {badge && (
+                      <span style={{
+                        fontSize: 'var(--font-size-xs)', fontWeight: 600,
+                        padding: '2px 8px', borderRadius: 10,
+                        background: badge.color, color: '#fff',
+                      }}>
+                        {badge.label}
+                      </span>
+                    )}
+                    <span style={{ fontWeight: 600, flex: 1 }}>{note.title || '제목 없음'}</span>
+                    <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      {getMemberName(note.authorId)}
                     </span>
-                  )}
-                  <span style={{ fontWeight: 600, flex: 1 }}>{note.title || '제목 없음'}</span>
-                  <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {getMemberName(note.authorId)}
-                  </span>
-                  <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
-                    {formatDate(note.updatedAt)}
-                  </span>
+                    <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      {formatDate(note.updatedAt)}
+                    </span>
+                  </div>
+                  <div className="text-secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                    {preview(note.content)}
+                  </div>
                 </div>
-                <div className="text-secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
-                  {preview(note.content)}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+          {/* 페이지네이션 */}
+          {filtered.length > PER_PAGE && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page <= 1}
+                onClick={() => setPage(page - 1)}
+              >
+                ←
+              </button>
+              <span style={{ fontSize: 'var(--font-size-sm)' }}>
+                {page} / {Math.ceil(filtered.length / PER_PAGE)}
+              </span>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={page >= Math.ceil(filtered.length / PER_PAGE)}
+                onClick={() => setPage(page + 1)}
+              >
+                →
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

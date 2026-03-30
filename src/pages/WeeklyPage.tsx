@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWeekly, useMembers, useCases, useNotes } from '../hooks/useStore';
+import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
 import type { Weekly, MemberTask } from '../types';
 
@@ -34,10 +35,12 @@ function ListEditor({
   items,
   onUpdate,
   placeholder,
+  onItemClick,
 }: {
   items: string[];
   onUpdate: (items: string[]) => void;
   placeholder: string;
+  onItemClick?: (item: string) => void;
 }) {
   const [newItem, setNewItem] = useState('');
 
@@ -55,7 +58,12 @@ function ListEditor({
     <div>
       {items.map((item, idx) => (
         <div key={idx} className="weekly-list-item">
-          <span style={{ flex: 1 }}>{item}</span>
+          <span
+            style={{ flex: 1, cursor: onItemClick ? 'pointer' : 'default' }}
+            onClick={() => onItemClick?.(item)}
+          >
+            {item}
+          </span>
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => handleRemove(idx)}
@@ -89,14 +97,34 @@ function ChecklistEditor({
   onAdd,
   onItemClick,
   placeholder,
+  inputPrefix,
+  onPrefixConsumed,
 }: {
   items: MemberTask[];
   onUpdate: (items: MemberTask[]) => void;
   onAdd: (text: string) => void;
   onItemClick?: (task: MemberTask) => void;
   placeholder: string;
+  inputPrefix?: string;
+  onPrefixConsumed?: () => void;
 }) {
   const [newItem, setNewItem] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // prefix가 외부에서 설정되면 input에 반영 + 스크롤 + 포커스
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (inputPrefix) {
+      setNewItem(inputPrefix);
+      onPrefixConsumed?.();
+      // 다음 프레임에서 스크롤 + 포커스
+      requestAnimationFrame(() => {
+        inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        inputRef.current?.focus();
+      });
+    }
+  }, [inputPrefix]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleDone = (idx: number) => {
     const updated = [...items];
@@ -158,6 +186,7 @@ function ChecklistEditor({
       )}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <input
+          ref={inputRef}
           type="text"
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
@@ -220,6 +249,7 @@ export function WeeklyPage() {
   const { items: members } = useMembers();
   const { items: cases } = useCases();
   const { add: addNote } = useNotes();
+  const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
 
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart());
@@ -305,6 +335,9 @@ export function WeeklyPage() {
     if (task.noteId) navigate(`/app/notes/${task.noteId}`);
   };
 
+  // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
+  const [goalPrefix, setGoalPrefix] = useState<{ memberId: string; text: string } | null>(null);
+
   return (
     <div>
       <div className="page-header">
@@ -348,7 +381,17 @@ export function WeeklyPage() {
               items={currentWeekly.goals}
               onUpdate={(goals) => update({ goals })}
               placeholder="목표 입력"
+              onItemClick={(goal) => {
+                if (currentMember) {
+                  setGoalPrefix({ memberId: currentMember.id, text: `${goal}: ` });
+                }
+              }}
             />
+            {currentWeekly.goals.length > 0 && (
+              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginTop: 6 }}>
+                팁: 목표를 클릭하면 해당 목표의 할 일을 바로 추가할 수 있습니다
+              </div>
+            )}
           </Section>
 
           {/* ── 관련 케이스 (참조용) ── */}
@@ -395,6 +438,8 @@ export function WeeklyPage() {
                       onAdd={(text) => addMemberTask(member.id, text)}
                       onItemClick={handleTaskClick}
                       placeholder="할 일 입력"
+                      inputPrefix={goalPrefix?.memberId === member.id ? goalPrefix.text : undefined}
+                      onPrefixConsumed={() => setGoalPrefix(null)}
                     />
                   </div>
                 );
