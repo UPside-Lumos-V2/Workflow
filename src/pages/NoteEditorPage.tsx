@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useNotes, useCases, useWeekly, useMembers } from '../hooks/useStore';
 import { summarizeMeetingNote } from '../lib/gemini';
 import { SummaryPreviewModal } from '../components/SummaryPreviewModal';
+import { getWeekStartDate } from '../lib/date';
 import type { MeetingSummary } from '../types';
 
 export function NoteEditorPage() {
@@ -99,14 +100,7 @@ export function NoteEditorPage() {
 
     // 2. 주간보드에 반영 (append 방식) — 연결된 주간 우선, 없으면 현재 날짜 기준 주차
     const findCurrentWeekly = () => {
-      // 현재 날짜의 주 시작일 계산
-      const now = new Date();
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const weekStartDate = new Date(now);
-      weekStartDate.setDate(diff);
-      weekStartDate.setHours(0, 0, 0, 0);
-      const todayWeekStart = weekStartDate.toISOString().slice(0, 10);
+      const todayWeekStart = getWeekStartDate();
 
       // 현재 주차와 일치하는 weekly 찾기
       const currentWeek = weeklies.find((w) => w.weekStart === todayWeekStart);

@@ -3,20 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useWeekly, useMembers, useCases, useNotes } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
+import { getWeekStartDate, toLocalDateString } from '../lib/date';
 import type { Weekly, MemberTask } from '../types';
 
-/** 월요일 기준 주 시작일 (ISO) */
-function getWeekStart(date: Date = new Date()): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
-}
-
 function getWeekLabel(weekStart: string): string {
-  const start = new Date(weekStart);
+  const start = new Date(weekStart + 'T00:00:00');
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
   const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
@@ -25,9 +16,9 @@ function getWeekLabel(weekStart: string): string {
 }
 
 function shiftWeek(weekStart: string, delta: number): string {
-  const d = new Date(weekStart);
+  const d = new Date(weekStart + 'T00:00:00');
   d.setDate(d.getDate() + delta * 7);
-  return d.toISOString().slice(0, 10);
+  return toLocalDateString(d);
 }
 
 // ── 인라인 리스트 편집기 ──
@@ -288,7 +279,7 @@ export function WeeklyPage() {
   const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
 
-  const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart());
+  const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStartDate());
 
   const rawWeekly = useMemo(
     () => weeklies.find((w) => w.weekStart === currentWeekStart),

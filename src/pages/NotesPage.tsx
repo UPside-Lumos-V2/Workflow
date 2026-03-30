@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useNotes, useMembers, useWeekly } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
+import { getWeekStartDate, toLocalDateString } from '../lib/date';
 
 type NoteTab = '전체' | '노트' | '회의록' | '할 일';
 const TABS: NoteTab[] = ['전체', '노트', '회의록', '할 일'];
@@ -56,15 +57,10 @@ export function NotesPage() {
   /** 이전 주차 데이터를 기반으로 회의록 초안 생성 */
   const buildMeetingDraft = (): string => {
     // 이전 주 시작일 계산 (현재 주 월요일 - 7일)
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const currentStart = new Date(now);
-    currentStart.setDate(diff);
-    currentStart.setHours(0, 0, 0, 0);
-    const prevStart = new Date(currentStart);
+    const currentWeekStart = getWeekStartDate();
+    const prevStart = new Date(currentWeekStart + 'T00:00:00');
     prevStart.setDate(prevStart.getDate() - 7);
-    const prevWeekStart = prevStart.toISOString().slice(0, 10);
+    const prevWeekStart = toLocalDateString(prevStart);
 
     // 이전 주차 weekly 찾기
     const prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
@@ -97,12 +93,7 @@ export function NotesPage() {
     const content = buildMeetingDraft();
 
     // 현재 주차 weekly 찾기/연결
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStartDate = new Date(now);
-    weekStartDate.setDate(diff);
-    weekStartDate.setHours(0, 0, 0, 0);
-    const weekStart = weekStartDate.toISOString().slice(0, 10);
+    const weekStart = getWeekStartDate();
     const currentWeekly = weeklies.find((w) => w.weekStart === weekStart);
 
     const newNote = await add({

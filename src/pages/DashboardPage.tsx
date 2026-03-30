@@ -1,15 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCases, useWeekly, useNotes, useMembers } from '../hooks/useStore';
-
-function getWeekStart(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().slice(0, 10);
-}
+import { getWeekStartDate } from '../lib/date';
 
 function DashCard({ title, children, onClick }: { title: string; children: React.ReactNode; onClick?: () => void }) {
   return (
@@ -34,7 +26,7 @@ export function DashboardPage() {
   const { items: members } = useMembers();
 
   const currentWeekly = useMemo(
-    () => weeklies.find((w) => w.weekStart === getWeekStart()),
+    () => weeklies.find((w) => w.weekStart === getWeekStartDate()),
     [weeklies],
   );
 
