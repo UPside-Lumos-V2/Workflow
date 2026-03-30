@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase';
 
 const SEED_MEMBERS = [
   { name: 'Erwin', role_description: '' },
-  { name: 'n4mchun', role_description: '' },
+  { name: 'Ethan', role_description: '' },
   { name: 'Omin', role_description: '' },
   { name: 'Tamaneko', role_description: '' },
   { name: 'Wi11y', role_description: '' },
