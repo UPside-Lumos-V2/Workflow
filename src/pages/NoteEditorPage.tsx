@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useNotes, useCases, useWeekly, useMembers } from '../hooks/useStore';
 import { summarizeMeetingNote } from '../lib/gemini';
 import { SummaryPreviewModal } from '../components/SummaryPreviewModal';
-import { getWeekStartDate } from '../lib/date';
 import type { MeetingSummary } from '../types';
 
 export function NoteEditorPage() {
@@ -61,6 +60,11 @@ export function NoteEditorPage() {
 
   const handleSummarize = async () => {
     if (!canSummarize) return;
+    if (!note?.linkedWeeklyId) {
+      setSummaryError('연결 주간을 먼저 선택해주세요. 요약 결과가 해당 주간보드에 반영됩니다.');
+      setConfirmSummarize(false);
+      return;
+    }
     setConfirmSummarize(false);
 
     setSummarizing(true);
@@ -98,25 +102,10 @@ export function NoteEditorPage() {
       tags: ['회의록'],
     });
 
-    // 2. 주간보드에 반영 (append 방식) — 연결된 주간 우선, 없으면 현재 날짜 기준 주차
-    const findCurrentWeekly = () => {
-      const todayWeekStart = getWeekStartDate();
-
-      // 현재 주차와 일치하는 weekly 찾기
-      const currentWeek = weeklies.find((w) => w.weekStart === todayWeekStart);
-      if (currentWeek) return currentWeek;
-
-      // 없으면 현재 날짜 이전의 가장 가까운 주차
-      const pastWeeks = weeklies
-        .filter((w) => w.weekStart <= todayWeekStart)
-        .sort((a, b) => b.weekStart.localeCompare(a.weekStart));
-      return pastWeeks[0] ?? sortedWeeklies[0];
-    };
-
-    const targetWeekly = note.linkedWeeklyId
-      ? weeklies.find((w) => w.id === note.linkedWeeklyId) ?? findCurrentWeekly()
-      : findCurrentWeekly();
-    const currentWeekly = targetWeekly;
+    // 2. 주간보드에 반영 (append 방식) — 연결된 주간에 직접 반영
+    const currentWeekly = note.linkedWeeklyId
+      ? weeklies.find((w) => w.id === note.linkedWeeklyId)
+      : null;
 
     console.log('[요약반영] targetWeekly:', currentWeekly?.id, currentWeekly?.weekStart);
     console.log('[요약반영] note.linkedWeeklyId:', note.linkedWeeklyId);
