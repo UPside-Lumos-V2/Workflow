@@ -114,6 +114,7 @@ function ChecklistEditor({
 }) {
   const [newItem, setNewItem] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [confirmDeleteIdx, setConfirmDeleteIdx] = useState<number | null>(null);
 
   // prefix가 외부에서 설정되면 input에 반영 + 스크롤 + 포커스
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -142,10 +143,10 @@ function ChecklistEditor({
     setNewItem('');
   };
 
-  const handleRemove = (idx: number) => {
-    if (!window.confirm(`"${items[idx].text}" 할 일을 삭제하시겠습니까?`)) return;
+  const executeRemove = (idx: number) => {
     onRemove?.(items[idx], idx);
     onUpdate(items.filter((_, i) => i !== idx));
+    setConfirmDeleteIdx(null);
   };
 
   const doneCount = items.filter((t) => t.done).length;
@@ -186,13 +187,32 @@ function ChecklistEditor({
               📝
             </button>
           )}
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={() => handleRemove(idx)}
-            style={{ color: 'var(--color-text-tertiary)', padding: '2px 6px' }}
-          >
-            ×
-          </button>
+          {confirmDeleteIdx === idx ? (
+            <>
+              <button
+                className="btn btn-sm"
+                style={{ background: 'var(--color-priority-high)', color: '#fff', padding: '2px 6px', fontSize: 11 }}
+                onClick={() => executeRemove(idx)}
+              >
+                삭제
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '2px 6px', fontSize: 11 }}
+                onClick={() => setConfirmDeleteIdx(null)}
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => setConfirmDeleteIdx(idx)}
+              style={{ color: 'var(--color-text-tertiary)', padding: '2px 6px' }}
+            >
+              ×
+            </button>
+          )}
         </div>
       ))}
       {doneCount > 0 && items.length > 0 && (
