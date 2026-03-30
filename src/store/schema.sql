@@ -139,7 +139,7 @@ BEGIN
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);
     EXECUTE format('DROP POLICY IF EXISTS lumos_email_access ON %I', tbl);
     EXECUTE format(
-      'CREATE POLICY lumos_email_access ON %I FOR ALL TO authenticated USING (auth.jwt() ->> ''email'' = ''upsidelumos@gmail.com'') WITH CHECK (auth.jwt() ->> ''email'' = ''upsidelumos@gmail.com'')',
+      'CREATE POLICY lumos_email_access ON %I FOR ALL TO authenticated USING (auth.jwt() ->> ''email'' IN (''upsidelumos@gmail.com'', ''zer0luck@theori.io'')) WITH CHECK (auth.jwt() ->> ''email'' IN (''upsidelumos@gmail.com'', ''zer0luck@theori.io''))',
       tbl
     );
   END LOOP;

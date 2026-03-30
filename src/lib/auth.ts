@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 // ============================================================
 // 화이트리스트 — 이 이메일만 LUMOS 접근 가능
 // ============================================================
-const ALLOWED_EMAILS = ['upsidelumos@gmail.com'];
+const ALLOWED_EMAILS = ['upsidelumos@gmail.com', 'zer0luck@theori.io'];
 
 export function isAllowedUser(email: string | undefined): boolean {
   if (!email) return false;
