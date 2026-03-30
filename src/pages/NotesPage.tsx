@@ -69,34 +69,23 @@ export function NotesPage() {
     // 이전 주차 weekly 찾기
     const prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
 
+    // 멘토(Zeroluck) 제외한 팀원만
+    const draftMembers = members.filter((m) => m.name.toLowerCase() !== 'zeroluck');
+
     const sections: string[] = [];
 
-    // 이전 주차 팀원별 할 일 요약
-    if (prevWeekly?.memberTasks) {
-      sections.push('## 📋 전 주차 팀원별 할 일 현황\n');
-      for (const member of members) {
-        const tasks = prevWeekly.memberTasks[member.id] ?? [];
-        if (tasks.length === 0) continue;
-        const taskLines = tasks.map((t) => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n');
-        sections.push(`### ${member.name}\n${taskLines}\n`);
-      }
+    // 1. 멤버별 전 주차 한 일 정리
+    sections.push('## 📋 멤버별 한 일 정리\n');
+    for (const member of draftMembers) {
+      const tasks = prevWeekly?.memberTasks?.[member.id] ?? [];
+      const taskLines = tasks.length > 0
+        ? tasks.map((t) => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n')
+        : '- ';
+      sections.push(`### ${member.name}\n${taskLines}\n`);
     }
 
-    // 이전 주차 피드백
-    if (prevWeekly?.mentoringFeedback) {
-      sections.push(`## 💬 전 주차 멘토링 피드백\n${prevWeekly.mentoringFeedback}\n`);
-    }
-
-    // 이전 주차 이월 항목
-    if (prevWeekly?.carryOver && prevWeekly.carryOver.length > 0) {
-      sections.push(`## 📦 이월 항목\n${prevWeekly.carryOver.map((c) => `- ${c}`).join('\n')}\n`);
-    }
-
-    // 이번 주 피드백/할 일 작성 영역
-    sections.push('## 🎯 이번 주 목표\n-\n');
-    sections.push('## ✅ 이번 주 할 일\n-\n');
-    sections.push('## 💬 멘토링 피드백\n\n');
-    sections.push('## 🚀 액션 아이템\n-\n');
+    // 2. 이번 주 회의 내용
+    sections.push('## 📝 회의 내용\n\n');
 
     return sections.join('\n');
   };
