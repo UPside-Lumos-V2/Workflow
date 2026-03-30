@@ -51,6 +51,7 @@ export function DashboardPage() {
     let total = 0;
     let done = 0;
     for (const [memberId, tasks] of Object.entries(currentWeekly.memberTasks)) {
+      if (memberId === 'unassigned') continue; // 미배정 제외
       if (tasks.length > 0) {
         const memberDone = tasks.filter((t) => t.done).length;
         grouped[memberId] = { total: tasks.length, done: memberDone };

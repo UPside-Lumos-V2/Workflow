@@ -96,6 +96,16 @@ export interface Weekly extends BaseEntity {
   carryOver: string[]; // 다음 주로 넘기는 항목
 }
 
+// --- Meeting Summary (LLM 요약 결과) ---
+
+export interface MeetingSummary {
+  goals: string[];            // 이번 주 목표
+  tasks: string[];            // 할 일 목록 (팀원 미배정 flat list)
+  mentoringFeedback: string;  // 멘토링 피드백
+  actionItems: string[];      // 액션 아이템
+  carryOver: string[];        // 이월 항목
+}
+
 // --- Note ---
 
 export interface Note extends BaseEntity {
