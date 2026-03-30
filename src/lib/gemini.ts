@@ -44,7 +44,6 @@ export async function summarizeMeetingNote(
     goals: parsed.goals ?? [],
     tasks: parsed.tasks ?? [],
     mentoringFeedback: parsed.mentoringFeedback ?? '',
-    actionItems: parsed.actionItems ?? [],
     carryOver: parsed.carryOver ?? [],
   };
 }

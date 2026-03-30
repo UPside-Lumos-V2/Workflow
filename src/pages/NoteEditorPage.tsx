@@ -84,7 +84,6 @@ export function NoteEditorPage() {
       edited.goals.length > 0 ? `## 🎯 이번 주 목표\n${edited.goals.map((g) => `- ${g}`).join('\n')}` : '',
       edited.tasks.length > 0 ? `## ✅ 할 일 목록\n${edited.tasks.map((t) => `- ${t}`).join('\n')}` : '',
       edited.mentoringFeedback ? `## 💬 멘토링 피드백\n${edited.mentoringFeedback}` : '',
-      edited.actionItems.length > 0 ? `## 🚀 액션 아이템\n${edited.actionItems.map((a) => `- ${a}`).join('\n')}` : '',
       edited.carryOver.length > 0 ? `## 📦 이월 항목\n${edited.carryOver.map((c) => `- ${c}`).join('\n')}` : '',
     ].filter(Boolean).join('\n\n');
 
@@ -139,9 +138,6 @@ export function NoteEditorPage() {
           : edited.mentoringFeedback
         : existingFeedback;
 
-      const existingActions = currentWeekly.mentoringActionItems ?? [];
-      const newActions = edited.actionItems.filter((a) => !existingActions.includes(a));
-
       const existingCarry = currentWeekly.carryOver ?? [];
       const newCarry = edited.carryOver.filter((c) => !existingCarry.includes(c));
 
@@ -157,7 +153,6 @@ export function NoteEditorPage() {
       const patch = {
         goals: [...existingGoals, ...newGoals],
         mentoringFeedback: newFeedback,
-        mentoringActionItems: [...existingActions, ...newActions],
         carryOver: [...existingCarry, ...newCarry],
         memberTasks: {
           ...existingTasks,

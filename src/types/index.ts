@@ -102,7 +102,6 @@ export interface MeetingSummary {
   goals: string[];            // 이번 주 목표
   tasks: string[];            // 할 일 목록 (팀원 미배정 flat list)
   mentoringFeedback: string;  // 멘토링 피드백
-  actionItems: string[];      // 액션 아이템
   carryOver: string[];        // 이월 항목
 }
 

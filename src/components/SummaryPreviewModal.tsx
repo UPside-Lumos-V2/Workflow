@@ -60,7 +60,6 @@ export function SummaryPreviewModal({
   const [goals, setGoals] = useState(summary.goals);
   const [tasks, setTasks] = useState(summary.tasks);
   const [feedback, setFeedback] = useState(summary.mentoringFeedback);
-  const [actionItems, setActionItems] = useState(summary.actionItems);
   const [carryOver, setCarryOver] = useState(summary.carryOver);
 
   const makeEdit = (setter: (v: string[]) => void, list: string[]) => (idx: number, value: string) => {
@@ -78,7 +77,6 @@ export function SummaryPreviewModal({
       goals,
       tasks,
       mentoringFeedback: feedback,
-      actionItems,
       carryOver,
     });
   };
@@ -123,7 +121,6 @@ export function SummaryPreviewModal({
           />
         </div>
 
-        <ListSection title="🚀 액션 아이템" items={actionItems} onEdit={makeEdit(setActionItems, actionItems)} onRemove={makeRemove(setActionItems, actionItems)} emptyMsg="추출된 액션 없음" />
         <ListSection title="📦 이월 항목" items={carryOver} onEdit={makeEdit(setCarryOver, carryOver)} onRemove={makeRemove(setCarryOver, carryOver)} emptyMsg="이월 항목 없음" />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
