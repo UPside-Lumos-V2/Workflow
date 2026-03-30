@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNotes, useMembers } from '../hooks/useStore';
+import { useNotes, useMembers, useWeekly } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
 
@@ -10,6 +10,7 @@ const TABS: NoteTab[] = ['전체', '노트', '회의록', '할 일'];
 export function NotesPage() {
   const { items: notes, add } = useNotes();
   const { items: members } = useMembers();
+  const { items: weeklies } = useWeekly();
   const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -52,17 +53,76 @@ export function NotesPage() {
     if (newNote) navigate(`/app/notes/${newNote.id}`);
   };
 
+  /** 이전 주차 데이터를 기반으로 회의록 초안 생성 */
+  const buildMeetingDraft = (): string => {
+    // 이전 주 시작일 계산 (현재 주 월요일 - 7일)
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const currentStart = new Date(now);
+    currentStart.setDate(diff);
+    currentStart.setHours(0, 0, 0, 0);
+    const prevStart = new Date(currentStart);
+    prevStart.setDate(prevStart.getDate() - 7);
+    const prevWeekStart = prevStart.toISOString().slice(0, 10);
+
+    // 이전 주차 weekly 찾기
+    const prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
+
+    const sections: string[] = [];
+
+    // 이전 주차 팀원별 할 일 요약
+    if (prevWeekly?.memberTasks) {
+      sections.push('## 📋 전 주차 팀원별 할 일 현황\n');
+      for (const member of members) {
+        const tasks = prevWeekly.memberTasks[member.id] ?? [];
+        if (tasks.length === 0) continue;
+        const taskLines = tasks.map((t) => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n');
+        sections.push(`### ${member.name}\n${taskLines}\n`);
+      }
+    }
+
+    // 이전 주차 피드백
+    if (prevWeekly?.mentoringFeedback) {
+      sections.push(`## 💬 전 주차 멘토링 피드백\n${prevWeekly.mentoringFeedback}\n`);
+    }
+
+    // 이전 주차 이월 항목
+    if (prevWeekly?.carryOver && prevWeekly.carryOver.length > 0) {
+      sections.push(`## 📦 이월 항목\n${prevWeekly.carryOver.map((c) => `- ${c}`).join('\n')}\n`);
+    }
+
+    // 이번 주 피드백/할 일 작성 영역
+    sections.push('## 🎯 이번 주 목표\n-\n');
+    sections.push('## ✅ 이번 주 할 일\n-\n');
+    sections.push('## 💬 멘토링 피드백\n\n');
+    sections.push('## 🚀 액션 아이템\n-\n');
+
+    return sections.join('\n');
+  };
+
   const handleCreateMeeting = async () => {
     if (!currentMember) return;
     const now = new Date();
     const title = `${now.getMonth() + 1}월 ${now.getDate()}일 멘토링`;
+    const content = buildMeetingDraft();
+
+    // 현재 주차 weekly 찾기/연결
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const weekStartDate = new Date(now);
+    weekStartDate.setDate(diff);
+    weekStartDate.setHours(0, 0, 0, 0);
+    const weekStart = weekStartDate.toISOString().slice(0, 10);
+    const currentWeekly = weeklies.find((w) => w.weekStart === weekStart);
+
     const newNote = await add({
       title,
-      content: '',
+      content,
       status: 'draft',
       authorId: currentMember.id,
       linkedCaseId: null,
-      linkedWeeklyId: null,
+      linkedWeeklyId: currentWeekly?.id ?? null,
       tags: ['회의록'],
     });
     if (newNote) navigate(`/app/notes/${newNote.id}`);
