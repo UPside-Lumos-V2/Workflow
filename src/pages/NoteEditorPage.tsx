@@ -26,6 +26,7 @@ export function NoteEditorPage() {
   const [transcript, setTranscript] = useState('');  // 녹음본 텍스트
   const [showTranscript, setShowTranscript] = useState(false);
   const [confirmSummarize, setConfirmSummarize] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   // note 로딩 후 로컬 state 동기화
   useEffect(() => {
@@ -141,7 +142,8 @@ export function NoteEditorPage() {
     }
 
     setSummaryResult(null);
-    alert('✅ 요약 노트 생성 + 주간보드 반영 완료!');
+    setSuccessMsg('✅ 요약 노트 생성 + 주간보드 반영 완료!');
+    setTimeout(() => setSuccessMsg(''), 4000);
   };
 
   if (!note) {
@@ -167,6 +169,17 @@ export function NoteEditorPage() {
         ← 노트 목록
       </button>
 
+      {/* 성공 메시지 */}
+      {successMsg && (
+        <div style={{
+          background: '#10b981', color: '#fff', padding: '8px 16px',
+          borderRadius: 'var(--radius-md)', marginBottom: 12,
+          fontSize: 'var(--font-size-sm)', fontWeight: 600,
+        }}>
+          {successMsg}
+        </div>
+      )}
+
       {/* 태그 + 작성자 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         {tagBadge && (
@@ -183,25 +196,51 @@ export function NoteEditorPage() {
         </span>
       </div>
 
-      {/* 제목 */}
-      <input
-        type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        onBlur={() => { if (title !== note.title) save({ title }); }}
-        placeholder="제목 입력"
-        style={{
-          fontSize: 'var(--font-size-2xl)',
-          fontWeight: 700,
-          border: 'none',
-          borderBottom: '1px solid var(--color-border-light)',
-          width: '100%',
-          paddingBottom: 8,
-          marginBottom: 20,
-          background: 'transparent',
-          letterSpacing: '-0.02em',
-        }}
-      />
+      {/* 제목 + 삭제 버튼 */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 20 }}>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={() => { if (title !== note.title) save({ title }); }}
+          placeholder="제목 입력"
+          style={{
+            fontSize: 'var(--font-size-2xl)',
+            fontWeight: 700,
+            border: 'none',
+            borderBottom: '1px solid var(--color-border-light)',
+            flex: 1,
+            paddingBottom: 8,
+            background: 'transparent',
+            letterSpacing: '-0.02em',
+          }}
+        />
+        {!confirmDelete ? (
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ color: 'var(--color-priority-high)', whiteSpace: 'nowrap', marginTop: 4 }}
+            onClick={() => setConfirmDelete(true)}
+          >
+            삭제
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', whiteSpace: 'nowrap', marginTop: 4 }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-priority-high)' }}>
+              삭제?
+            </span>
+            <button
+              className="btn btn-sm"
+              style={{ background: 'var(--color-priority-high)', color: '#fff', padding: '2px 8px' }}
+              onClick={handleDelete}
+            >
+              확인
+            </button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>
+              취소
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 본문 */}
       <textarea
@@ -322,34 +361,7 @@ export function NoteEditorPage() {
         </div>
       </div>
 
-      {/* 삭제 */}
-      <div style={{ marginTop: 24, borderTop: '1px solid var(--color-border-light)', paddingTop: 16 }}>
-        {confirmDelete ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-priority-high)' }}>
-              정말 삭제하시겠습니까?
-            </span>
-            <button
-              className="btn btn-sm"
-              style={{ background: 'var(--color-priority-high)', color: '#fff' }}
-              onClick={handleDelete}
-            >
-              삭제
-            </button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDelete(false)}>
-              취소
-            </button>
-          </div>
-        ) : (
-          <button
-            className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--color-priority-high)' }}
-            onClick={() => setConfirmDelete(true)}
-          >
-            노트 삭제
-          </button>
-        )}
-      </div>
+
 
       {/* 요약 미리보기 모달 */}
       {summaryResult && (
