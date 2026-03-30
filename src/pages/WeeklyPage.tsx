@@ -96,6 +96,8 @@ function ChecklistEditor({
   onUpdate,
   onAdd,
   onItemClick,
+  onNoteClick,
+  onRemove,
   placeholder,
   inputPrefix,
   onPrefixConsumed,
@@ -104,6 +106,8 @@ function ChecklistEditor({
   onUpdate: (items: MemberTask[]) => void;
   onAdd: (text: string) => void;
   onItemClick?: (task: MemberTask) => void;
+  onNoteClick?: (task: MemberTask) => void;
+  onRemove?: (task: MemberTask, idx: number) => void;
   placeholder: string;
   inputPrefix?: string;
   onPrefixConsumed?: () => void;
@@ -139,6 +143,8 @@ function ChecklistEditor({
   };
 
   const handleRemove = (idx: number) => {
+    if (!window.confirm(`"${items[idx].text}" 할 일을 삭제하시겠습니까?`)) return;
+    onRemove?.(items[idx], idx);
     onUpdate(items.filter((_, i) => i !== idx));
   };
 
@@ -170,6 +176,16 @@ function ChecklistEditor({
           >
             {task.text}
           </span>
+          {onNoteClick && task.noteId && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onNoteClick(task)}
+              style={{ padding: '2px 6px', fontSize: 12 }}
+              title="노트 열기"
+            >
+              📝
+            </button>
+          )}
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => handleRemove(idx)}
@@ -248,7 +264,7 @@ export function WeeklyPage() {
   const { items: weeklies, add, edit } = useWeekly();
   const { items: members } = useMembers();
   const { items: cases } = useCases();
-  const { add: addNote } = useNotes();
+  const { add: addNote, remove: removeNote } = useNotes();
   const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
 
@@ -331,8 +347,23 @@ export function WeeklyPage() {
     updateMemberTasks(memberId, [...existing, { text, noteId, done: false }]);
   };
 
+  // 할 일 텍스트 클릭 → 현재 팀원의 input에 prefix 설정 (목표 클릭과 동일 동작)
   const handleTaskClick = (task: MemberTask) => {
+    if (currentMember) {
+      setGoalPrefix({ memberId: currentMember.id, text: `${task.text}: ` });
+    }
+  };
+
+  // 📝 아이콘 클릭 → 노트로 이동
+  const handleNoteClick = (task: MemberTask) => {
     if (task.noteId) navigate(`/app/notes/${task.noteId}`);
+  };
+
+  // 할 일 삭제 → 연결된 노트도 함께 삭제
+  const handleTaskRemove = (task: MemberTask) => {
+    if (task.noteId) {
+      removeNote(task.noteId);
+    }
   };
 
   // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
@@ -437,6 +468,8 @@ export function WeeklyPage() {
                       onUpdate={(updated) => updateMemberTasks(member.id, updated)}
                       onAdd={(text) => addMemberTask(member.id, text)}
                       onItemClick={handleTaskClick}
+                      onNoteClick={handleNoteClick}
+                      onRemove={handleTaskRemove}
                       placeholder="할 일 입력"
                       inputPrefix={goalPrefix?.memberId === member.id ? goalPrefix.text : undefined}
                       onPrefixConsumed={() => setGoalPrefix(null)}
@@ -445,6 +478,53 @@ export function WeeklyPage() {
                 );
               })}
             </div>
+
+            {/* 미배정 할 일 (LLM 요약에서 생성됨) */}
+            {(() => {
+              const unassigned = currentWeekly.memberTasks['unassigned'] ?? [];
+              if (unassigned.length === 0) return null;
+              return (
+                <div className="card" style={{ padding: 14, marginTop: 12, opacity: 0.7, borderStyle: 'dashed' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 'var(--font-size-sm)' }}>
+                    📋 미배정 할 일
+                    <span className="text-tertiary"> ({unassigned.length})</span>
+                  </div>
+                  <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 8 }}>
+                    클릭하면 현재 선택된 팀원에게 배정됩니다
+                  </div>
+                  {unassigned.map((task, idx) => (
+                    <div
+                      key={idx}
+                      className="weekly-list-item"
+                      style={{
+                        gap: 6, cursor: 'pointer',
+                        opacity: 0.8,
+                        transition: 'opacity 0.2s',
+                      }}
+                      onClick={() => {
+                        if (!currentMember) return;
+                        // 미배정에서 제거
+                        const updatedUnassigned = unassigned.filter((_, i) => i !== idx);
+                        // 해당 팀원에게 추가
+                        const memberTasks = currentWeekly.memberTasks[currentMember.id] ?? [];
+                        update({
+                          memberTasks: {
+                            ...currentWeekly.memberTasks,
+                            unassigned: updatedUnassigned,
+                            [currentMember.id]: [...memberTasks, task],
+                          },
+                        });
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8'; }}
+                    >
+                      <span style={{ color: 'var(--color-text-tertiary)', marginRight: 4 }}>○</span>
+                      <span style={{ flex: 1 }}>{task.text}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Section>
 
           {/* ── 멘토링 ── */}
