@@ -82,6 +82,7 @@ export interface MemberTask {
   text: string;
   noteId: string; // 연결된 노트 ID
   done: boolean;
+  source?: 'summary' | 'manual'; // summary: LLM에서 생성 → 삭제 시 미배정 복구, manual: 직접 입력 → 완전 삭제
 }
 
 export interface Weekly extends BaseEntity {

@@ -8,5 +8,11 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = supabaseUrl && supabaseKey
-  ? createClient(supabaseUrl, supabaseKey)
+  ? createClient(supabaseUrl, supabaseKey, {
+      realtime: {
+        params: {
+          eventsPerSecond: 20,
+        },
+      },
+    })
   : null;

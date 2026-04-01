@@ -152,6 +152,7 @@ export function NoteEditorPage() {
         text,
         noteId: '',
         done: false,
+        source: 'summary' as const,
       }));
 
       const patch = {

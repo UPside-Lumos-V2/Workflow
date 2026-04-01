@@ -355,7 +355,7 @@ export function WeeklyPage() {
     });
     const noteId = newNote?.id ?? '';
     const existing = currentWeekly?.memberTasks[memberId] ?? [];
-    updateMemberTasks(memberId, [...existing, { text, noteId, done: false }]);
+    updateMemberTasks(memberId, [...existing, { text, noteId, done: false, source: 'manual' }]);
   };
 
   // 할 일 텍스트 클릭 → 현재 팀원의 input에 prefix 설정 (목표 클릭과 동일 동작)
@@ -370,11 +370,23 @@ export function WeeklyPage() {
     if (task.noteId) navigate(`/app/notes/${task.noteId}`);
   };
 
-  // 할 일 삭제 → 연결된 노트도 함께 삭제
+  // 할 일 삭제 → source에 따라 분기
   const handleTaskRemove = (task: MemberTask) => {
     if (task.noteId) {
       removeNote(task.noteId);
     }
+    // summary에서 온 할 일이면 미배정으로 복구
+    if (task.source === 'summary' && currentWeekly) {
+      const unassigned = currentWeekly.memberTasks['unassigned'] ?? [];
+      // noteId/done 초기화하여 미배정으로 복원
+      update({
+        memberTasks: {
+          ...currentWeekly.memberTasks,
+          unassigned: [...unassigned, { text: task.text, noteId: '', done: false, source: 'summary' }],
+        },
+      });
+    }
+    // manual이면 아무것도 안 함 (ChecklistEditor의 onUpdate에서 filter 처리됨)
   };
 
   // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
@@ -522,7 +534,7 @@ export function WeeklyPage() {
                           memberTasks: {
                             ...currentWeekly.memberTasks,
                             unassigned: updatedUnassigned,
-                            [currentMember.id]: [...memberTasks, task],
+                            [currentMember.id]: [...memberTasks, { ...task, source: 'summary' as const }],
                           },
                         });
                       }}
@@ -552,12 +564,62 @@ export function WeeklyPage() {
               </div>
               <div className="form-group">
                 <label className="form-label">피드백</label>
-                <BlurSaveTextarea
-                  value={currentWeekly.mentoringFeedback}
-                  onSave={(val) => update({ mentoringFeedback: val })}
-                  placeholder="멘토링 피드백 기록"
-                  rows={2}
-                />
+                {/* 번호 리스트로 항목별 입력 */}
+                {(() => {
+                  // 기존 문자열 → 배열 변환 (줄바꿈 기준)
+                  const feedbackItems = currentWeekly.mentoringFeedback
+                    ? currentWeekly.mentoringFeedback.split('\n').filter(Boolean)
+                    : [];
+                  return (
+                    <div>
+                      {feedbackItems.map((item, idx) => (
+                        <div key={idx} className="weekly-list-item">
+                          <span style={{ color: 'var(--color-accent)', fontWeight: 600, marginRight: 6, minWidth: 20 }}>
+                            {idx + 1}.
+                          </span>
+                          <span style={{ flex: 1 }}>{item}</span>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => {
+                              const updated = feedbackItems.filter((_, i) => i !== idx);
+                              update({ mentoringFeedback: updated.join('\n') });
+                            }}
+                            style={{ color: 'var(--color-text-tertiary)', padding: '2px 6px' }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <input
+                          type="text"
+                          placeholder="피드백 항목 입력"
+                          style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const val = (e.target as HTMLInputElement).value.trim();
+                              if (!val) return;
+                              update({ mentoringFeedback: [...feedbackItems, val].join('\n') });
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }}
+                        />
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={(e) => {
+                            const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                            const val = input.value.trim();
+                            if (!val) return;
+                            update({ mentoringFeedback: [...feedbackItems, val].join('\n') });
+                            input.value = '';
+                          }}
+                        >
+                          추가
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="form-group">
                 <label className="form-label">할 일 목록</label>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { useRealtimeTable } from './useRealtimeTable';
 import type {
   Case, Task, Artifact, Discussion, Weekly, Note, Member,
   CaseStatus,
@@ -212,6 +213,9 @@ export function useDiscussions() {
 export function useWeekly() {
   const store = useSupabaseTable<Weekly>('lumos_weeklies', 'week_start');
 
+  // 다른 사용자의 변경 실시간 감지 → auto-refetch
+  useRealtimeTable('lumos_weeklies', store.refetch);
+
   const current = useMemo(() => {
     if (store.items.length === 0) return undefined;
     // 가장 최근 주
@@ -222,5 +226,10 @@ export function useWeekly() {
 }
 
 export function useNotes() {
-  return useSupabaseTable<Note>('lumos_notes');
+  const store = useSupabaseTable<Note>('lumos_notes');
+
+  // 다른 사용자의 노트 변경 실시간 감지 → auto-refetch
+  useRealtimeTable('lumos_notes', store.refetch);
+
+  return store;
 }
