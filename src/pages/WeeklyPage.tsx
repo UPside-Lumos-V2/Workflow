@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWeekly, useMembers, useCases, useNotes } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
-import { EmptyState } from '../components/shared';
+import { EmptyState, Modal } from '../components/shared';
+import { DiscussionPanel } from '../components/DiscussionPanel';
 import { getWeekStartDate, toLocalDateString } from '../lib/date';
 import type { Weekly, MemberTask } from '../types';
 
@@ -89,6 +90,7 @@ function ChecklistEditor({
   onItemClick,
   onNoteClick,
   onRemove,
+  onDiscussionClick,
   placeholder,
   inputPrefix,
   onPrefixConsumed,
@@ -100,6 +102,7 @@ function ChecklistEditor({
   onNoteClick?: (task: MemberTask) => void;
   /** onRemove가 제공되면 삭제 시 onUpdate 대신 onRemove를 호출 (원자적 업데이트 위임) */
   onRemove?: (task: MemberTask, idx: number, filteredItems: MemberTask[]) => void;
+  onDiscussionClick?: (task: MemberTask) => void;
   placeholder: string;
   inputPrefix?: string;
   onPrefixConsumed?: () => void;
@@ -184,6 +187,17 @@ function ChecklistEditor({
               title="노트 열기"
             >
               📝
+            </button>
+          )}
+          {/* 💬 Discussion 버튼 */}
+          {onDiscussionClick && (
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={() => onDiscussionClick(task)}
+              style={{ padding: '2px 6px', fontSize: 12 }}
+              title="논의 열기"
+            >
+              💬
             </button>
           )}
           {confirmDeleteIdx === idx ? (
@@ -401,6 +415,7 @@ export function WeeklyPage() {
 
   // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
   const [goalPrefix, setGoalPrefix] = useState<{ memberId: string; text: string } | null>(null);
+  const [discussionTarget, setDiscussionTarget] = useState<{ text: string; memberId: string } | null>(null);
 
   return (
     <div>
@@ -503,6 +518,7 @@ export function WeeklyPage() {
                       onItemClick={handleTaskClick}
                       onNoteClick={handleNoteClick}
                       onRemove={handleTaskRemove(member.id)}
+                      onDiscussionClick={(task) => setDiscussionTarget({ text: task.text, memberId: member.id })}
                       placeholder="할 일 입력"
                       inputPrefix={goalPrefix?.memberId === member.id ? goalPrefix.text : undefined}
                       onPrefixConsumed={() => setGoalPrefix(null)}
@@ -651,6 +667,21 @@ export function WeeklyPage() {
             />
           </Section>
         </div>
+      )}
+
+      {/* Discussion 모달 */}
+      {discussionTarget && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDiscussionTarget(null)}
+          title={`💬 ${discussionTarget.text}`}
+        >
+          <DiscussionPanel
+            contextType="task"
+            contextId={`${discussionTarget.memberId}-${discussionTarget.text}`}
+            contextLabel={discussionTarget.text}
+          />
+        </Modal>
       )}
     </div>
   );

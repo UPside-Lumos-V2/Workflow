@@ -125,7 +125,7 @@ export function CaseDetailPage() {
       {/* 탭 컨텐츠 */}
       {activeTab === 'tasks' && <CaseTasksTab caseId={caseData.id} />}
       {activeTab === 'artifacts' && <CaseArtifactsTab caseId={caseData.id} />}
-      {activeTab === 'discussion' && <CaseDiscussionTab caseId={caseData.id} />}
+      {activeTab === 'discussion' && <CaseDiscussionTab caseId={caseData.id} caseTitle={caseData.title} />}
 
       {/* 수정 모달 */}
       <EditCaseModal

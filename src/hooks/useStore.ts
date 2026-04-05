@@ -203,11 +203,17 @@ export function useArtifacts() {
 
 export function useDiscussions() {
   const store = useSupabaseTable<Discussion>('lumos_discussions');
-  const byCaseId = useCallback(
-    (caseId: string) => store.items.filter((d) => d.caseId === caseId),
+  const byContext = useCallback(
+    (contextType: string, contextId: string) =>
+      store.items.filter((d) => d.contextType === contextType && d.contextId === contextId),
     [store.items]
   );
-  return { ...store, byCaseId };
+  // 하위호환
+  const byCaseId = useCallback(
+    (caseId: string) => store.items.filter((d) => d.contextType === 'case' && d.contextId === caseId),
+    [store.items]
+  );
+  return { ...store, byContext, byCaseId };
 }
 
 export function useWeekly() {

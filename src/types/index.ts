@@ -69,11 +69,22 @@ export interface Artifact extends BaseEntity {
 
 // --- Discussion ---
 
+export type DiscussionContext = 'case' | 'task' | 'topic';
+
+export interface DiscussionAttachment {
+  name: string;
+  url: string; // base64 data URL or external link
+  type: string; // MIME type
+}
+
 export interface Discussion extends BaseEntity {
-  caseId: string;
-  taskId: string | null; // 특정 Task에 대한 코멘트이면 taskId, Case 레벨이면 null
-  authorId: string; // Member.id
-  content: string; // Markdown 텍스트
+  contextType: DiscussionContext; // 어디에 연결된 논의인지
+  contextId: string;             // case ID, task hash, or topic ID
+  contextLabel: string;          // 표시용 제목
+  authorId: string;              // Member.id
+  content: string;               // Markdown 텍스트
+  parentId: string | null;       // 스레드 답글
+  attachments?: DiscussionAttachment[];
 }
 
 // --- Weekly ---
