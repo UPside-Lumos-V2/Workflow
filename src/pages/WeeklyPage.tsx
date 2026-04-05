@@ -167,6 +167,8 @@ function ChecklistEditor({
             onClick={() => onItemClick?.(task)}
             style={{
               flex: 1,
+              minWidth: 0,
+              wordBreak: 'break-word',
               textDecoration: task.done ? 'line-through' : 'none',
               color: task.done ? 'var(--color-text-tertiary)' : 'inherit',
               cursor: onItemClick ? 'pointer' : 'default',
@@ -224,7 +226,7 @@ function ChecklistEditor({
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder={placeholder}
-          style={{ flex: 1, fontSize: 'var(--font-size-sm)' }}
+          style={{ flex: 1, minWidth: 0, fontSize: 'var(--font-size-sm)' }}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
         />
         <button className="btn btn-secondary btn-sm" onClick={handleAdd} disabled={!newItem.trim()}>
@@ -487,7 +489,7 @@ export function WeeklyPage() {
               {members.map((member) => {
                 const tasks = currentWeekly.memberTasks[member.id] ?? [];
                 return (
-                  <div key={member.id} className="card" style={{ padding: 14 }}>
+                  <div key={member.id} className="card" style={{ padding: 14, minWidth: 0, overflow: 'hidden' }}>
                     <div style={{ fontWeight: 600, marginBottom: 10, fontSize: 'var(--font-size-sm)' }}>
                       {member.name}
                       {tasks.length > 0 && (
