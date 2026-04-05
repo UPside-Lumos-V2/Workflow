@@ -9,7 +9,15 @@ import { Observable } from 'lib0/observable';
  *
  * y-webrtc/y-websocket 대신 Supabase Broadcast를 사용하여
  * Yjs 문서 업데이트를 클라이언트 간에 relay합니다.
+ *
+ * ── 재연결 로직 ──
+ * - 채널 에러/타임아웃 감지 → 지수 백오프 후 자동 재연결
+ * - 브라우저 탭 복귀(visibilitychange) 시 연결 상태 확인 → 필요시 재연결
  */
+
+const MAX_RETRY_DELAY = 30_000; // 최대 30초 대기
+const BASE_RETRY_DELAY = 1_000; // 첫 재시도 1초
+
 export class SupabaseProvider extends Observable<string> {
   private channel: RealtimeChannel | null = null;
   doc: Y.Doc;
@@ -17,6 +25,11 @@ export class SupabaseProvider extends Observable<string> {
   private roomName: string;
   private synced = false;
   private _destroyed = false;
+
+  // ── 재연결용 상태 ──
+  private retryCount = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private handleVisibility = () => this.onVisibilityChange();
 
   constructor(roomName: string, doc: Y.Doc) {
     super();
@@ -26,11 +39,16 @@ export class SupabaseProvider extends Observable<string> {
 
     if (supabase) {
       this.connect();
+      // 브라우저 탭 복귀 시 연결 상태 확인
+      document.addEventListener('visibilitychange', this.handleVisibility);
     }
   }
 
   private connect() {
     if (!supabase || this._destroyed) return;
+
+    // 기존 채널 정리
+    this.cleanupChannel();
 
     this.channel = supabase.channel(`yjs-${this.roomName}`, {
       config: { broadcast: { self: false, ack: true } },
@@ -86,8 +104,13 @@ export class SupabaseProvider extends Observable<string> {
 
     this.channel.subscribe((status, err) => {
       console.log(`[SupabaseProvider] channel status: ${status}`, err ?? '');
-      if (status === 'SUBSCRIBED' && !this._destroyed) {
+
+      if (this._destroyed) return;
+
+      if (status === 'SUBSCRIBED') {
         console.log('[SupabaseProvider] ✅ connected to channel:', `yjs-${this.roomName}`);
+        this.retryCount = 0; // 성공 → 재시도 카운터 초기화
+
         // 기존 접속자에게 동기화 요청
         this.channel?.send({
           type: 'broadcast',
@@ -103,6 +126,18 @@ export class SupabaseProvider extends Observable<string> {
           }
         }, 1000);
       }
+
+      // ── 에러/타임아웃 → 자동 재연결 ──
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`[SupabaseProvider] ⚠️ channel ${status}, scheduling reconnect...`);
+        this.scheduleReconnect();
+      }
+
+      // CLOSED 상태: 명시적으로 닫은 게 아니면 재연결
+      if (status === 'CLOSED' && !this._destroyed) {
+        console.warn('[SupabaseProvider] ⚠️ channel CLOSED unexpectedly, scheduling reconnect...');
+        this.scheduleReconnect();
+      }
     });
 
     // 로컬 변경 → broadcast
@@ -110,6 +145,63 @@ export class SupabaseProvider extends Observable<string> {
 
     // Awareness 변경 → broadcast
     this.awareness.on('update', this.handleAwarenessUpdate);
+  }
+
+  // ── 재연결 스케줄러 (지수 백오프) ──
+  private scheduleReconnect() {
+    if (this._destroyed) return;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+
+    const delay = Math.min(BASE_RETRY_DELAY * 2 ** this.retryCount, MAX_RETRY_DELAY);
+    this.retryCount++;
+    console.log(`[SupabaseProvider] 🔄 reconnecting in ${delay}ms (attempt #${this.retryCount})...`);
+
+    this.retryTimer = setTimeout(() => {
+      if (this._destroyed) return;
+      this.synced = false;
+      this.connect();
+    }, delay);
+  }
+
+  // ── 브라우저 탭 복귀 감지 ──
+  private onVisibilityChange() {
+    if (document.visibilityState !== 'visible' || this._destroyed) return;
+
+    // 채널이 없거나 연결 상태가 아닌 경우 재연결
+    if (!this.channel) {
+      console.log('[SupabaseProvider] 🔄 tab visible, no channel → reconnecting...');
+      this.retryCount = 0;
+      this.synced = false;
+      this.connect();
+      return;
+    }
+
+    // Supabase 채널의 현재 상태를 확인하여 재연결 필요 여부 결정
+    // 채널이 존재하지만 sync-request를 보내서 연결 상태 확인
+    console.log('[SupabaseProvider] 📱 tab visible, sending sync-request to verify connection...');
+    this.channel.send({
+      type: 'broadcast',
+      event: 'yjs-sync-request',
+      payload: {},
+    }).catch(() => {
+      // send 실패 → 채널 끊김, 재연결
+      console.warn('[SupabaseProvider] ⚠️ send failed on tab resume → reconnecting...');
+      this.retryCount = 0;
+      this.synced = false;
+      this.connect();
+    });
+  }
+
+  // ── 기존 채널 정리 (재연결 전) ──
+  private cleanupChannel() {
+    if (this.channel) {
+      this.doc.off('update', this.handleDocUpdate);
+      this.awareness.off('update', this.handleAwarenessUpdate);
+      if (supabase) {
+        supabase.removeChannel(this.channel);
+      }
+      this.channel = null;
+    }
   }
 
   private handleDocUpdate = (update: Uint8Array, origin: unknown) => {
@@ -155,6 +247,8 @@ export class SupabaseProvider extends Observable<string> {
   destroy() {
     if (this._destroyed) return;
     this._destroyed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    document.removeEventListener('visibilitychange', this.handleVisibility);
     this.doc.off('update', this.handleDocUpdate);
     this.awareness.off('update', this.handleAwarenessUpdate);
     this.awareness.destroy();

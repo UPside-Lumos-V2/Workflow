@@ -98,7 +98,8 @@ function ChecklistEditor({
   onAdd: (text: string) => void;
   onItemClick?: (task: MemberTask) => void;
   onNoteClick?: (task: MemberTask) => void;
-  onRemove?: (task: MemberTask, idx: number) => void;
+  /** onRemove가 제공되면 삭제 시 onUpdate 대신 onRemove를 호출 (원자적 업데이트 위임) */
+  onRemove?: (task: MemberTask, idx: number, filteredItems: MemberTask[]) => void;
   placeholder: string;
   inputPrefix?: string;
   onPrefixConsumed?: () => void;
@@ -135,8 +136,13 @@ function ChecklistEditor({
   };
 
   const executeRemove = (idx: number) => {
-    onRemove?.(items[idx], idx);
-    onUpdate(items.filter((_, i) => i !== idx));
+    const filtered = items.filter((_, i) => i !== idx);
+    if (onRemove) {
+      // onRemove가 전체 업데이트를 원자적으로 처리 (경쟁조건 방지)
+      onRemove(items[idx], idx, filtered);
+    } else {
+      onUpdate(filtered);
+    }
     setConfirmDeleteIdx(null);
   };
 
@@ -370,23 +376,25 @@ export function WeeklyPage() {
     if (task.noteId) navigate(`/app/notes/${task.noteId}`);
   };
 
-  // 할 일 삭제 → source에 따라 분기
-  const handleTaskRemove = (task: MemberTask) => {
+  // 할 일 삭제 → source에 따라 분기 (원자적 update — 경쟁조건 방지)
+  const handleTaskRemove = (memberId: string) => (task: MemberTask, _idx: number, filteredTasks: MemberTask[]) => {
     if (task.noteId) {
       removeNote(task.noteId);
     }
-    // summary에서 온 할 일이면 미배정으로 복구
+    // summary에서 온 할 일이면: 목록에서 제거 + 미배정으로 복구를 하나의 update()로 처리
     if (task.source === 'summary' && currentWeekly) {
       const unassigned = currentWeekly.memberTasks['unassigned'] ?? [];
-      // noteId/done 초기화하여 미배정으로 복원
       update({
         memberTasks: {
           ...currentWeekly.memberTasks,
+          [memberId]: filteredTasks,
           unassigned: [...unassigned, { text: task.text, noteId: '', done: false, source: 'summary' }],
         },
       });
+    } else {
+      // manual 할 일: 목록에서만 제거
+      updateMemberTasks(memberId, filteredTasks);
     }
-    // manual이면 아무것도 안 함 (ChecklistEditor의 onUpdate에서 filter 처리됨)
   };
 
   // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
@@ -492,7 +500,7 @@ export function WeeklyPage() {
                       onAdd={(text) => addMemberTask(member.id, text)}
                       onItemClick={handleTaskClick}
                       onNoteClick={handleNoteClick}
-                      onRemove={handleTaskRemove}
+                      onRemove={handleTaskRemove(member.id)}
                       placeholder="할 일 입력"
                       inputPrefix={goalPrefix?.memberId === member.id ? goalPrefix.text : undefined}
                       onPrefixConsumed={() => setGoalPrefix(null)}
