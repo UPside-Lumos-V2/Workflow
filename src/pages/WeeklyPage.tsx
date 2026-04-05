@@ -500,7 +500,7 @@ export function WeeklyPage() {
 
           {/* ── 팀원별 할 일 (케이스와 독립) ── */}
           <Section title="팀원별 할 일">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
               {members.map((member) => {
                 const tasks = currentWeekly.memberTasks[member.id] ?? [];
                 return (
