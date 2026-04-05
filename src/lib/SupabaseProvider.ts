@@ -10,26 +10,34 @@ import { Observable } from 'lib0/observable';
  * y-webrtc/y-websocket 대신 Supabase Broadcast를 사용하여
  * Yjs 문서 업데이트를 클라이언트 간에 relay합니다.
  *
- * ── 재연결 로직 ──
- * - 채널 에러/타임아웃 감지 → 지수 백오프 후 자동 재연결
+ * ── 안정성 보장 ──
+ * - 채널 에러/타임아웃/CLOSED 감지 → 지수 백오프 후 자동 재연결
  * - 브라우저 탭 복귀(visibilitychange) 시 연결 상태 확인 → 필요시 재연결
+ * - 재연결 시 로컬 전체 상태 재전송 → 끊긴 동안 유실된 편집 복구
+ * - send() 연속 실패 감지 → 자동 재연결 트리거
+ * - 초기 동기화 3초 타임아웃 (기존 1초 → 여유 확보)
  */
 
 const MAX_RETRY_DELAY = 30_000; // 최대 30초 대기
 const BASE_RETRY_DELAY = 1_000; // 첫 재시도 1초
+const SYNC_TIMEOUT = 3_000;     // 초기 동기화 타임아웃
+const SEND_FAIL_THRESHOLD = 3;  // 연속 N회 실패 시 재연결
 
 export class SupabaseProvider extends Observable<string> {
   private channel: RealtimeChannel | null = null;
   doc: Y.Doc;
   awareness: Awareness;
   private roomName: string;
-  private synced = false;
+  private _synced = false;
   private _destroyed = false;
 
   // ── 재연결용 상태 ──
   private retryCount = 0;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private handleVisibility = () => this.onVisibilityChange();
+
+  // ── send 실패 감지 ──
+  private sendFailCount = 0;
 
   constructor(roomName: string, doc: Y.Doc) {
     super();
@@ -42,6 +50,11 @@ export class SupabaseProvider extends Observable<string> {
       // 브라우저 탭 복귀 시 연결 상태 확인
       document.addEventListener('visibilitychange', this.handleVisibility);
     }
+  }
+
+  /** 동기화 완료 여부 (외부에서 읽기용) */
+  get synced(): boolean {
+    return this._synced;
   }
 
   private connect() {
@@ -80,7 +93,7 @@ export class SupabaseProvider extends Observable<string> {
     this.channel.on('broadcast', { event: 'yjs-sync-request' }, () => {
       if (this._destroyed) return;
       const state = Y.encodeStateAsUpdate(this.doc);
-      this.channel?.send({
+      this.safeSend({
         type: 'broadcast',
         event: 'yjs-sync-response',
         payload: { update: this.uint8ArrayToBase64(state) },
@@ -93,8 +106,8 @@ export class SupabaseProvider extends Observable<string> {
       try {
         const update = this.base64ToUint8Array(payload.payload.update);
         Y.applyUpdate(this.doc, update, 'supabase');
-        if (!this.synced) {
-          this.synced = true;
+        if (!this._synced) {
+          this._synced = true;
           this.emit('synced', [{ synced: true }]);
         }
       } catch (err) {
@@ -109,22 +122,34 @@ export class SupabaseProvider extends Observable<string> {
 
       if (status === 'SUBSCRIBED') {
         console.log('[SupabaseProvider] ✅ connected to channel:', `yjs-${this.roomName}`);
-        this.retryCount = 0; // 성공 → 재시도 카운터 초기화
+        this.retryCount = 0;
+        this.sendFailCount = 0;
 
-        // 기존 접속자에게 동기화 요청
-        this.channel?.send({
+        // 1. 기존 접속자에게 동기화 요청
+        this.safeSend({
           type: 'broadcast',
           event: 'yjs-sync-request',
           payload: {},
         });
 
-        // 1초 후에도 sync 안 됐으면 자체적으로 synced 처리
+        // 2. ★ 로컬 전체 상태도 broadcast (재연결 시 끊긴 동안 유실된 편집 복구)
+        const fullState = Y.encodeStateAsUpdate(this.doc);
+        if (fullState.byteLength > 2) { // 빈 문서가 아닌 경우만
+          this.safeSend({
+            type: 'broadcast',
+            event: 'yjs-update',
+            payload: { update: this.uint8ArrayToBase64(fullState) },
+          });
+          console.log('[SupabaseProvider] 📤 broadcasted local full state:', fullState.byteLength, 'bytes');
+        }
+
+        // 3초 후에도 sync 안 됐으면 자체적으로 synced 처리 (타이밍 여유 확보)
         setTimeout(() => {
-          if (!this.synced && !this._destroyed) {
-            this.synced = true;
+          if (!this._synced && !this._destroyed) {
+            this._synced = true;
             this.emit('synced', [{ synced: true }]);
           }
-        }, 1000);
+        }, SYNC_TIMEOUT);
       }
 
       // ── 에러/타임아웃 → 자동 재연결 ──
@@ -147,6 +172,32 @@ export class SupabaseProvider extends Observable<string> {
     this.awareness.on('update', this.handleAwarenessUpdate);
   }
 
+  // ── 안전한 send (실패 감지 + 재연결 트리거) ──
+  private safeSend(message: { type: 'broadcast'; event: string; payload: Record<string, unknown> }) {
+    if (!this.channel || this._destroyed) return;
+    this.channel.send(message)
+      .then((status: string) => {
+        if (status === 'ok') {
+          this.sendFailCount = 0; // 성공 → 카운터 초기화
+        } else {
+          this.onSendFail();
+        }
+      })
+      .catch(() => {
+        this.onSendFail();
+      });
+  }
+
+  private onSendFail() {
+    this.sendFailCount++;
+    console.warn(`[SupabaseProvider] ⚠️ send failed (${this.sendFailCount}/${SEND_FAIL_THRESHOLD})`);
+    if (this.sendFailCount >= SEND_FAIL_THRESHOLD) {
+      console.warn('[SupabaseProvider] 🔄 too many send failures, reconnecting...');
+      this.sendFailCount = 0;
+      this.scheduleReconnect();
+    }
+  }
+
   // ── 재연결 스케줄러 (지수 백오프) ──
   private scheduleReconnect() {
     if (this._destroyed) return;
@@ -158,7 +209,7 @@ export class SupabaseProvider extends Observable<string> {
 
     this.retryTimer = setTimeout(() => {
       if (this._destroyed) return;
-      this.synced = false;
+      this._synced = false;
       this.connect();
     }, delay);
   }
@@ -171,25 +222,28 @@ export class SupabaseProvider extends Observable<string> {
     if (!this.channel) {
       console.log('[SupabaseProvider] 🔄 tab visible, no channel → reconnecting...');
       this.retryCount = 0;
-      this.synced = false;
+      this._synced = false;
       this.connect();
       return;
     }
 
-    // Supabase 채널의 현재 상태를 확인하여 재연결 필요 여부 결정
-    // 채널이 존재하지만 sync-request를 보내서 연결 상태 확인
-    console.log('[SupabaseProvider] 📱 tab visible, sending sync-request to verify connection...');
-    this.channel.send({
+    // 탭 복귀 시 sync-request + 로컬 상태 재전송
+    console.log('[SupabaseProvider] 📱 tab visible, re-syncing...');
+    this.safeSend({
       type: 'broadcast',
       event: 'yjs-sync-request',
       payload: {},
-    }).catch(() => {
-      // send 실패 → 채널 끊김, 재연결
-      console.warn('[SupabaseProvider] ⚠️ send failed on tab resume → reconnecting...');
-      this.retryCount = 0;
-      this.synced = false;
-      this.connect();
     });
+
+    // 로컬 전체 상태도 재전송
+    const fullState = Y.encodeStateAsUpdate(this.doc);
+    if (fullState.byteLength > 2) {
+      this.safeSend({
+        type: 'broadcast',
+        event: 'yjs-update',
+        payload: { update: this.uint8ArrayToBase64(fullState) },
+      });
+    }
   }
 
   // ── 기존 채널 정리 (재연결 전) ──
@@ -207,7 +261,7 @@ export class SupabaseProvider extends Observable<string> {
   private handleDocUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === 'supabase' || this._destroyed || !this.channel) return;
     console.log('[SupabaseProvider] broadcasting update, bytes:', update.byteLength);
-    this.channel.send({
+    this.safeSend({
       type: 'broadcast',
       event: 'yjs-update',
       payload: { update: this.uint8ArrayToBase64(update) },
@@ -218,7 +272,7 @@ export class SupabaseProvider extends Observable<string> {
     if (this._destroyed || !this.channel) return;
     const changedClients = added.concat(updated).concat(removed);
     const encodedUpdate = encodeAwarenessUpdate(this.awareness, changedClients);
-    this.channel.send({
+    this.safeSend({
       type: 'broadcast',
       event: 'yjs-awareness',
       payload: { update: this.uint8ArrayToBase64(encodedUpdate) },
