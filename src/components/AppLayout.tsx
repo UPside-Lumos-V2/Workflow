@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { signOut } from '../lib/auth';
@@ -12,11 +13,20 @@ const NAV_ITEMS = [
 export function AppLayout() {
   const location = useLocation();
   const { currentMember, clearMember } = useCurrentMember();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const closeSidebar = () => setSidebarOpen(false);
 
   return (
     <div className="app-layout">
+      {/* 모바일 오버레이 */}
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`}
+        onClick={closeSidebar}
+      />
+
       {/* Sidebar */}
-      <aside className="app-sidebar">
+      <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
           <span>LUMOS</span>
         </div>
@@ -33,6 +43,7 @@ export function AppLayout() {
                 key={item.to}
                 to={item.to}
                 className={() => `sidebar-link ${isActive ? 'active' : ''}`}
+                onClick={closeSidebar}
               >
                 <span>{item.label}</span>
               </NavLink>
@@ -77,6 +88,14 @@ export function AppLayout() {
       {/* Main */}
       <main className="app-main">
         <header className="app-header">
+          {/* 햄버거 버튼 (모바일에서만 표시) */}
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="메뉴 열기"
+          >
+            ☰
+          </button>
           <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
             {getPageTitle(location.pathname)}
           </div>
