@@ -23,11 +23,6 @@ const CHART_COLORS = {
   closed: '#10B981',
 };
 
-const MEMBER_CHART_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
-  '#8B5CF6', '#EC4899', '#14B8A6',
-];
-
 // ── DashCard (기존) ──
 function DashCard({ title, children, onClick }: { title: string; children: React.ReactNode; onClick?: () => void }) {
   return (
