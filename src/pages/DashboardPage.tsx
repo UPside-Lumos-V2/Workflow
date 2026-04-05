@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCases, useWeekly, useNotes, useMembers } from '../hooks/useStore';
 import { getWeekStartDate } from '../lib/date';
@@ -191,6 +191,16 @@ export function DashboardPage() {
       완료율: totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0,
     };
   }, [weeklies]);
+
+  // ═══ 주간 히스토리 뷰 ═══
+  const sortedWeeklies = useMemo(
+    () => [...weeklies].sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
+    [weeklies],
+  );
+  const [historyIdx, setHistoryIdx] = useState<number | null>(null);
+  // 기본값: 가장 최근 주차 (sortedWeeklies.length - 1)
+  const activeHistoryIdx = historyIdx ?? (sortedWeeklies.length - 1);
+  const historyWeekly = sortedWeeklies[activeHistoryIdx] ?? null;
 
   return (
     <div>
@@ -488,6 +498,90 @@ export function DashboardPage() {
           )}
         </ChartCard>
       </div>
+
+      {/* ══════════════ 주간 히스토리 뷰 ══════════════ */}
+      {sortedWeeklies.length > 0 && historyWeekly && (() => {
+        const stats = calcWeeklyStats(historyWeekly.memberTasks, historyWeekly.carryOver);
+        const rate = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+        const memberEntries = Object.entries(historyWeekly.memberTasks ?? {}).filter(([k]) => k !== 'unassigned');
+        return (
+          <div className="card" style={{ padding: '24px 28px', marginTop: 16, marginBottom: 24 }}>
+            {/* 헤더: ← 주차 이동 → */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={activeHistoryIdx <= 0}
+                onClick={() => setHistoryIdx(activeHistoryIdx - 1)}
+              >
+                ← 이전 주
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)' }}>
+                  📅 {historyWeekly.weekLabel}
+                </div>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                  완료율 {rate}% ({stats.done}/{stats.total})
+                </div>
+              </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                disabled={activeHistoryIdx >= sortedWeeklies.length - 1}
+                onClick={() => setHistoryIdx(activeHistoryIdx + 1)}
+              >
+                다음 주 →
+              </button>
+            </div>
+
+            {/* 목표 */}
+            {historyWeekly.goals.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)', marginBottom: 6 }}>
+                  🎯 목표
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {historyWeekly.goals.map((g, i) => (
+                    <li key={i} style={{ fontSize: 'var(--font-size-sm)', lineHeight: 1.6 }}>{g}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 팀원별 할 일 */}
+            {memberEntries.length > 0 && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginBottom: 16 }}>
+                {memberEntries.map(([memberId, tasks]) => (
+                  <div key={memberId} style={{
+                    padding: '10px 14px', borderRadius: 8,
+                    background: 'var(--color-bg-secondary, #F9FAFB)',
+                    border: '1px solid var(--color-border-light, #E5E7EB)',
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 6 }}>
+                      👤 {getMemberName(memberId) || memberId.slice(0, 4)}
+                    </div>
+                    {tasks.map((t, i) => (
+                      <div key={i} style={{
+                        fontSize: 'var(--font-size-xs)', display: 'flex', gap: 4, alignItems: 'flex-start',
+                        marginBottom: 3, color: t.done ? 'var(--color-text-tertiary)' : 'inherit',
+                      }}>
+                        <span style={{ flexShrink: 0 }}>{t.done ? '✅' : '☐'}</span>
+                        <span style={{ textDecoration: t.done ? 'line-through' : 'none', wordBreak: 'break-word' }}>{t.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* 이월 */}
+            {historyWeekly.carryOver && historyWeekly.carryOver.length > 0 && (
+              <div style={{ fontSize: 'var(--font-size-sm)', color: CHART_COLORS.carry }}>
+                <span style={{ fontWeight: 600 }}>📋 이월:</span>{' '}
+                {historyWeekly.carryOver.join(', ')}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

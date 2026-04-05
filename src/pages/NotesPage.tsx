@@ -5,8 +5,8 @@ import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
 import { getWeekStartDate, toLocalDateString } from '../lib/date';
 
-type NoteTab = '전체' | '노트' | '회의록' | '할 일';
-const TABS: NoteTab[] = ['전체', '노트', '회의록', '할 일'];
+type NoteTab = '전체' | '내 노트' | '노트' | '회의록' | '할 일';
+const TABS: NoteTab[] = ['전체', '내 노트', '노트', '회의록', '할 일'];
 
 export function NotesPage() {
   const { items: notes, add } = useNotes();
@@ -26,6 +26,7 @@ export function NotesPage() {
   // 탭 필터
   const tabFiltered = sorted.filter((n) => {
     if (activeTab === '전체') return true;
+    if (activeTab === '내 노트') return n.authorId === currentMember?.id;
     if (activeTab === '회의록') return n.tags.includes('회의록');
     if (activeTab === '할 일') return n.tags.includes('할 일');
     // '노트' = 회의록도 할 일도 아닌 것
@@ -211,6 +212,15 @@ export function NotesPage() {
                         background: badge.color, color: '#fff',
                       }}>
                         {badge.label}
+                      </span>
+                    )}
+                    {note.authorId === currentMember?.id && (
+                      <span style={{
+                        fontSize: 'var(--font-size-xs)', fontWeight: 600,
+                        padding: '2px 8px', borderRadius: 10,
+                        background: '#9F34B4', color: '#fff',
+                      }}>
+                        나
                       </span>
                     )}
                     <span style={{ fontWeight: 600, flex: 1 }}>{note.title || '제목 없음'}</span>
