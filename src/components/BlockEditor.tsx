@@ -34,6 +34,33 @@ async function uploadToStorage(file: File): Promise<string> {
   return data.publicUrl;
 }
 
+/** 유효하지 않은 이미지 URL 블록 정리 (Notion attachment: 등) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sanitizeBlocks(blocks: any[]): any[] {
+  const VALID_SCHEMES = ['http:', 'https:', 'data:'];
+  return blocks
+    .filter((block) => {
+      // image 블록의 url이 invalid scheme이면 제거
+      if (block.type === 'image' && block.props?.url) {
+        try {
+          const url = new URL(block.props.url);
+          return VALID_SCHEMES.some((s) => url.protocol === s);
+        } catch {
+          // URL 파싱 자체가 실패하면 invalid → 제거
+          return false;
+        }
+      }
+      return true;
+    })
+    .map((block) => {
+      // children이 있으면 재귀적으로 정리
+      if (block.children?.length > 0) {
+        return { ...block, children: sanitizeBlocks(block.children) };
+      }
+      return block;
+    });
+}
+
 interface CollaborationConfig {
   noteId: string;
   userName: string;
@@ -214,7 +241,7 @@ function CollaborationEditorInner({
         console.log('[BlockEditor] skipping autosave (not synced yet)');
         return;
       }
-      const json = JSON.stringify(editor.document);
+      const json = JSON.stringify(sanitizeBlocks(editor.document));
       onChange(json);
     }, 2000);
   }, [editor, onChange, provider, debounceRef]);
@@ -289,7 +316,7 @@ function StandaloneEditor({
   const handleChange = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      const json = JSON.stringify(editor.document);
+      const json = JSON.stringify(sanitizeBlocks(editor.document));
       onChange(json);
     }, 2000);
   }, [editor, onChange]);
