@@ -7,18 +7,30 @@ function ListSection({
   items,
   onEdit,
   onRemove,
+  onAdd,
   emptyMsg,
 }: {
   title: string;
   items: string[];
   onEdit: (idx: number, value: string) => void;
   onRemove: (idx: number) => void;
+  onAdd: () => void;
   emptyMsg: string;
 }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 'var(--font-size-sm)' }}>
-        {title} <span className="text-tertiary">({items.length})</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+          {title} <span className="text-tertiary">({items.length})</span>
+        </span>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={onAdd}
+          style={{ padding: '0 6px', fontSize: 14, lineHeight: 1, color: '#9F34B4' }}
+          title="항목 추가"
+        >
+          +
+        </button>
       </div>
       {items.length === 0 ? (
         <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>{emptyMsg}</div>
@@ -105,8 +117,8 @@ export function SummaryPreviewModal({
           각 항목을 수정하거나 삭제할 수 있습니다. 확인 후 "반영"을 누르세요.
         </div>
 
-        <ListSection title="🎯 이번 주 목표" items={goals} onEdit={makeEdit(setGoals, goals)} onRemove={makeRemove(setGoals, goals)} emptyMsg="추출된 목표 없음" />
-        <ListSection title="✅ 할 일 목록" items={tasks} onEdit={makeEdit(setTasks, tasks)} onRemove={makeRemove(setTasks, tasks)} emptyMsg="추출된 할 일 없음" />
+        <ListSection title="🎯 이번 주 목표" items={goals} onEdit={makeEdit(setGoals, goals)} onRemove={makeRemove(setGoals, goals)} onAdd={() => setGoals([...goals, ''])} emptyMsg="추출된 목표 없음" />
+        <ListSection title="✅ 할 일 목록" items={tasks} onEdit={makeEdit(setTasks, tasks)} onRemove={makeRemove(setTasks, tasks)} onAdd={() => setTasks([...tasks, ''])} emptyMsg="추출된 할 일 없음" />
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 'var(--font-size-sm)' }}>
@@ -121,7 +133,7 @@ export function SummaryPreviewModal({
           />
         </div>
 
-        <ListSection title="📦 이월 항목" items={carryOver} onEdit={makeEdit(setCarryOver, carryOver)} onRemove={makeRemove(setCarryOver, carryOver)} emptyMsg="이월 항목 없음" />
+        <ListSection title="📦 이월 항목" items={carryOver} onEdit={makeEdit(setCarryOver, carryOver)} onRemove={makeRemove(setCarryOver, carryOver)} onAdd={() => setCarryOver([...carryOver, ''])} emptyMsg="이월 항목 없음" />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button className="btn btn-ghost" onClick={onCancel}>취소</button>
