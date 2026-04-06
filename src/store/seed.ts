@@ -79,17 +79,19 @@ export async function initSeedData(): Promise<void> {
     },
   ]);
 
-  // Weekly 1개
+  // Weekly 1개 (화~월 기준)
   const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - today.getDay() + 1);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  const tuesday = new Date(today);
+  const dayOfWeek = today.getDay();
+  const diff = (dayOfWeek < 2 ? dayOfWeek + 5 : dayOfWeek - 2);
+  tuesday.setDate(today.getDate() - diff);
+  const monday = new Date(tuesday);
+  monday.setDate(tuesday.getDate() + 6);
   const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
 
   await supabase.from('lumos_weeklies').insert({
-    week_label: `Week ${Math.ceil(today.getDate() / 7)} (${fmt(monday)} ~ ${fmt(sunday)})`,
-    week_start: monday.toISOString().split('T')[0],
+    week_label: `Week ${Math.ceil(today.getDate() / 7)} (${fmt(tuesday)} ~ ${fmt(monday)})`,
+    week_start: tuesday.toISOString().split('T')[0],
     goals: ['CrossCurve Exploit 분석 완료', '주간 보고서 작성'],
     active_case_ids: [cases.id],
     mentoring_agenda: '공격 벡터 분류 기준 논의',
