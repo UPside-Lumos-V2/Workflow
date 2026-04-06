@@ -34,13 +34,53 @@ export interface Member extends BaseEntity {
 
 // --- Case ---
 
+export interface ScoreTimelineEntry {
+  label: string;   // 'Pre-Incident Audit', 'Hacked', 'Post-Mortem Release' 등
+  date: string | null;
+  status: 'completed' | 'pending' | 'none';
+}
+
+export interface FundAddress {
+  address: string;
+  txHash?: string;
+  link?: string;
+}
+
+export interface AuditEntry {
+  auditor: string;
+  scope: string; // 'In Scope', 'Out of Scope'
+  date: string;
+}
+
+export interface CaseIncidentData {
+  hackedAmount: number;         // USD 기준 피해금액
+  hackedDate: string;           // ISO date
+  chain: string;                // Ethereum, Arbitrum, BSC...
+  protocol: string;             // 프로토콜 이름
+  attackVector: string[];       // ['Contract Vulnerability', 'Logic Bug']
+  incidentCode: string;         // 'SHA1020'
+  lumosScore: number | null;    // 0~100
+  auditStatus: boolean | null;  // 사전 감사 여부
+  scoreTimeline: ScoreTimelineEntry[];
+  fundDestination: {
+    methods: string[];
+    status: string;
+    addresses: FundAddress[];
+  } | null;
+  auditHistory: {
+    preHack: AuditEntry[];
+    postHack: AuditEntry[];
+  } | null;
+  summary: string;
+}
+
 export interface Case extends BaseEntity {
   title: string;
   status: CaseStatus;
   priority: CasePriority;
-  description: string; // 간단 설명 (plain text or HTML)
-  // exploit 관련 메타데이터 (자유 필드)
-  metadata: Record<string, string>; // e.g., { protocol: "CrossCurve", chain: "Ethereum", txHash: "0x...", lossUsd: "1200000" }
+  description: string;
+  metadata: Record<string, string>;
+  incidentData?: CaseIncidentData;
 }
 
 // --- Task ---
