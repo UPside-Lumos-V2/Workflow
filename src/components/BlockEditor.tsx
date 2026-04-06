@@ -4,8 +4,35 @@ import { BlockNoteView } from '@blocknote/mantine';
 import type { Block } from '@blocknote/core';
 import * as Y from 'yjs';
 import { SupabaseProvider } from '../lib/SupabaseProvider';
+import { supabase } from '../lib/supabase';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
+
+/** Supabase Storage에 파일 업로드 → public URL 반환 */
+async function uploadToStorage(file: File): Promise<string> {
+  if (!supabase) throw new Error('Supabase not configured');
+
+  const ext = file.name.split('.').pop() || 'png';
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const filePath = `notes/${fileName}`;
+
+  const { error } = await supabase.storage
+    .from('lumos-uploads')
+    .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+  if (error) {
+    console.error('[uploadToStorage] upload failed:', error);
+    // fallback: base64
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const { data } = supabase.storage.from('lumos-uploads').getPublicUrl(filePath);
+  return data.publicUrl;
+}
 
 interface CollaborationConfig {
   noteId: string;
@@ -117,6 +144,7 @@ function CollaborationEditorInner({
   debounceRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
 }) {
   const editor = useCreateBlockNote({
+    uploadFile: uploadToStorage,
     collaboration: {
       provider: provider as any,
       fragment,
@@ -230,7 +258,7 @@ function StandaloneEditor({
   const editor = useCreateBlockNote({
     initialContent: parsedContent,
     defaultStyles: true,
-    uploadFile: undefined,
+    uploadFile: uploadToStorage,
   });
 
   // plain text/markdown인 경우 비동기 로드
