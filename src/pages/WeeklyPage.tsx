@@ -313,10 +313,25 @@ export function WeeklyPage() {
 
   const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStartDate());
 
-  const rawWeekly = useMemo(
-    () => weeklies.find((w) => w.weekStart === currentWeekStart),
-    [weeklies, currentWeekStart],
-  );
+  const rawWeekly = useMemo(() => {
+    // 정확 매칭
+    const exact = weeklies.find((w) => w.weekStart === currentWeekStart);
+    if (exact) return exact;
+    // 월→화 마이그레이션 fallback: ±1일 범위 탐색
+    const startDate = new Date(currentWeekStart + 'T00:00:00');
+    for (const offset of [-1, 1]) {
+      const probe = new Date(startDate);
+      probe.setDate(probe.getDate() + offset);
+      const probeStr = toLocalDateString(probe);
+      const match = weeklies.find((w) => w.weekStart === probeStr);
+      if (match) {
+        // 자동 마이그레이션: week_start를 새 기준(화요일)으로 업데이트
+        edit(match.id, { weekStart: currentWeekStart, weekLabel: getWeekLabel(currentWeekStart) });
+        return match;
+      }
+    }
+    return undefined;
+  }, [weeklies, currentWeekStart]);
 
   // 기존 string[] 데이터 → MemberTask[] 자동 마이그레이션
   const migrateTasks = (raw: unknown): MemberTask[] => {
