@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
-// 팀원 목록 (하드코딩 — Dexie 로컬 DB는 서버에서 접근 불가)
 const MEMBERS = [
   'Erwin', 'Ethan', 'Omin', 'Tamaneko',
   'Wi11y', 'Wiimdy', 'Yham', 'Zeroluck',
@@ -19,6 +18,28 @@ async function tgSend(
     body: JSON.stringify(body),
   });
   return res.json();
+}
+
+/** Supabase REST API에서 캐시된 주간 데이터 가져오기 */
+async function getCachedWeeklyData(): Promise<Record<string, { total: number; done: number; tasks: string[] }> | null> {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/bot_weekly_cache?id=eq.current&select=data`, {
+      headers: {
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+    });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (rows.length === 0) return null;
+    return rows[0].data;
+  } catch {
+    return null;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -40,7 +61,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const text = update.message.text.trim();
 
       if (text === '/lumos_status' || text.startsWith('/lumos_status@')) {
-        // 팀원 선택 inline keyboard (2열 배치)
         const keyboard: { text: string; callback_data: string }[][] = [];
         for (let i = 0; i < MEMBERS.length; i += 2) {
           const row: { text: string; callback_data: string }[] = [
@@ -83,25 +103,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const data = update.callback_query.data as string;
       const chatId = update.callback_query.message?.chat.id;
 
-      // answerCallbackQuery (버튼 로딩 해제)
       await tgSend(botToken, 'answerCallbackQuery', {
         callback_query_id: callbackId,
       });
 
       if (data.startsWith('status:') && chatId) {
         const memberName = data.split(':')[1];
-        // 현재 DB가 클라이언트 로컬이므로 웹 링크로 안내
-        await tgSend(botToken, 'sendMessage', {
-          chat_id: chatId,
-          text: `👤 *${memberName}* 현황:\n[워크플로우에서 확인](https://lumos-workflow.vercel.app/app/weekly)`,
-          parse_mode: 'Markdown',
-        });
+        const cached = await getCachedWeeklyData();
+
+        if (cached && cached[memberName]) {
+          const info = cached[memberName];
+          const progress = info.total > 0
+            ? `${info.done}/${info.total} (${Math.round((info.done / info.total) * 100)}%)`
+            : '할 일 없음';
+          const taskList = info.tasks.length > 0
+            ? info.tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')
+            : '배정된 할 일 없음';
+
+          await tgSend(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `👤 *${memberName}* 이번 주 현황\n\n✅ 완료율: ${progress}\n\n📝 *할 일 목록:*\n${taskList}`,
+            parse_mode: 'Markdown',
+          });
+        } else {
+          await tgSend(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `👤 *${memberName}*\n\n⚠️ 캐시된 데이터가 없습니다.\n워크플로우 주간 보드 페이지를 한 번 열어주세요.`,
+            parse_mode: 'Markdown',
+          });
+        }
       }
     }
 
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[telegram-webhook] Error:', err);
-    return res.status(200).json({ ok: true }); // Telegram은 항상 200 반환해야 재시도 안 함
+    return res.status(200).json({ ok: true });
   }
 }

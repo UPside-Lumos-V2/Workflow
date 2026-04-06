@@ -384,6 +384,25 @@ export function WeeklyPage() {
     if (currentWeekly) edit(currentWeekly.id, patch);
   };
 
+  // 텔레그램 봇용 데이터 push (memberTasks 변경 시 Supabase에 캐시)
+  useEffect(() => {
+    if (!currentWeekly?.memberTasks) return;
+    const memberSummaries: Record<string, { total: number; done: number; tasks: string[] }> = {};
+    for (const m of members) {
+      const tasks = currentWeekly.memberTasks[m.id] ?? [];
+      memberSummaries[m.name] = {
+        total: tasks.length,
+        done: tasks.filter((t) => t.done).length,
+        tasks: tasks.map((t) => `${t.done ? '✅' : '⬜'} ${t.text}`),
+      };
+    }
+    fetch('/api/push-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ memberSummaries }),
+    }).catch(() => { /* fire-and-forget */ });
+  }, [currentWeekly?.memberTasks, members]);
+
   // 팀원별 할 일 업데이트
   const updateMemberTasks = (memberId: string, tasks: MemberTask[]) => {
     const updated = { ...currentWeekly?.memberTasks, [memberId]: tasks };
