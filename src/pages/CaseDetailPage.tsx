@@ -165,6 +165,9 @@ export function CaseDetailPage() {
             <div className="card" style={{ padding: 20 }}>
               <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
                 LUMOS Score Criteria
+                <span className="text-tertiary" style={{ fontWeight: 400, fontSize: 'var(--font-size-xs)', marginLeft: 8 }}>
+                  (●클릭=상태변경 · 날짜클릭=수정)
+                </span>
               </div>
               <div style={{ position: 'relative', paddingLeft: 20 }}>
                 {/* 수직 라인 */}
@@ -172,21 +175,56 @@ export function CaseDetailPage() {
                   position: 'absolute', left: 7, top: 8, bottom: 8, width: 2,
                   background: 'linear-gradient(to bottom, #9F34B4, #D8A8E8)',
                 }} />
-                {inc.scoreTimeline.map((entry, i) => (
+                {inc.scoreTimeline.map((entry, i) => {
+                  const nextStatus = entry.status === 'none' ? 'pending' as const
+                    : entry.status === 'pending' ? 'completed' as const
+                    : 'none' as const;
+                  const statusLabel = { none: 'No Update', pending: 'In Progress', completed: 'Completed' };
+                  return (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, position: 'relative' }}>
-                    <div style={{
-                      width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginLeft: -20,
-                      background: entry.status === 'completed' ? '#9F34B4' : entry.status === 'pending' ? '#D8A8E8' : '#ddd',
-                      border: '3px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
-                    }} />
+                    <div
+                      title={`클릭: ${statusLabel[entry.status]} → ${statusLabel[nextStatus]}`}
+                      style={{
+                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginLeft: -20,
+                        background: entry.status === 'completed' ? '#9F34B4' : entry.status === 'pending' ? '#D8A8E8' : '#ddd',
+                        border: '3px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                        cursor: 'pointer', transition: 'transform 0.15s',
+                      }}
+                      onClick={() => {
+                        const updated = [...inc.scoreTimeline];
+                        updated[i] = { ...entry, status: nextStatus };
+                        // completed로 변경 시 날짜가 없으면 오늘 날짜 자동 세팅
+                        if (nextStatus === 'completed' && !entry.date) {
+                          updated[i].date = new Date().toISOString().slice(0, 10);
+                        }
+                        edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
+                      }}
+                      onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'scale(1.3)'; }}
+                      onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'scale(1)'; }}
+                    />
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.label}</div>
-                      <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
+                      <div
+                        className="text-tertiary"
+                        style={{ fontSize: 'var(--font-size-xs)', cursor: 'pointer', textDecoration: 'underline dotted', textDecorationColor: 'rgba(0,0,0,0.2)' }}
+                        onClick={() => {
+                          const newDate = prompt('날짜 입력 (YYYY-MM-DD)', entry.date || new Date().toISOString().slice(0, 10));
+                          if (newDate !== null) {
+                            const updated = [...inc.scoreTimeline];
+                            updated[i] = { ...entry, date: newDate || null };
+                            if (newDate && entry.status === 'none') {
+                              updated[i].status = 'completed';
+                            }
+                            edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
+                          }
+                        }}
+                      >
                         {entry.date ? new Date(entry.date).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Update'}
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
