@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const chatId = update.message.chat.id;
       const text = update.message.text.trim();
 
-      if (text === '/status' || text.startsWith('/status@')) {
+      if (text === '/lumos_status' || text.startsWith('/lumos_status@')) {
         // 팀원 선택 inline keyboard (2열 배치)
         const keyboard: { text: string; callback_data: string }[][] = [];
         for (let i = 0; i < MEMBERS.length; i += 2) {
@@ -60,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (text === '/cases' || text.startsWith('/cases@')) {
+      if (text === '/lumos_cases' || text.startsWith('/lumos_cases@')) {
         await tgSend(botToken, 'sendMessage', {
           chat_id: chatId,
           text: '🔍 *Active 케이스 확인:*\n[LUMOS Workflow에서 확인](https://lumos-workflow.vercel.app/app/cases)',
@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      if (text === '/weekly' || text.startsWith('/weekly@')) {
+      if (text === '/lumos_weekly' || text.startsWith('/lumos_weekly@')) {
         await tgSend(botToken, 'sendMessage', {
           chat_id: chatId,
           text: '📋 *이번 주 보드:*\n[LUMOS Workflow에서 확인](https://lumos-workflow.vercel.app/app/weekly)',
