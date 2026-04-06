@@ -46,8 +46,27 @@ export function CaseDetailPage() {
     );
   }
 
-  const inc = caseData.incidentData;
-  const hasIncidentData = !!inc;
+  // incidentData가 없어도 기본값으로 항상 카드 표시
+  const inc = caseData.incidentData ?? {
+    hackedAmount: parseInt(caseData.metadata?.lossUsd || caseData.metadata?.loss_usd || '0') || 0,
+    hackedDate: caseData.createdAt,
+    chain: caseData.metadata?.chain || '',
+    protocol: caseData.metadata?.protocol || '',
+    attackVector: [],
+    incidentCode: '',
+    lumosScore: null,
+    auditStatus: null,
+    scoreTimeline: [
+      { label: 'Pre-Incident Audit', date: null, status: 'none' as const },
+      { label: 'Hacked', date: caseData.createdAt, status: 'completed' as const },
+      { label: 'Post-Mortem Release', date: null, status: 'none' as const },
+      { label: 'Community Compensation', date: null, status: 'none' as const },
+      { label: 'Post-Incident Audit', date: null, status: 'none' as const },
+    ],
+    fundDestination: null,
+    auditHistory: null,
+    summary: '',
+  };
 
   return (
     <div>
@@ -87,8 +106,7 @@ export function CaseDetailPage() {
       </div>
 
       {/* ── LUMOS 사고 개요 카드 ── */}
-      {hasIncidentData && inc ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
           {/* 사고 개요 */}
           <div className="card" style={{ padding: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -210,27 +228,7 @@ export function CaseDetailPage() {
               <AuditSection title="Post-Hack" entries={inc.auditHistory.postHack} />
             </div>
           )}
-        </div>
-      ) : (
-        /* 기존 description + metadata (하위호환) */
-        <div style={{ marginBottom: 24 }}>
-          {caseData.description && (
-            <p className="text-secondary" style={{ marginBottom: 12, fontSize: 'var(--font-size-sm)', lineHeight: 1.6 }}>
-              {caseData.description}
-            </p>
-          )}
-          {Object.keys(caseData.metadata).length > 0 && (
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              {Object.entries(caseData.metadata).map(([key, value]) => (
-                <div key={key} style={{ fontSize: 'var(--font-size-xs)' }}>
-                  <span className="text-tertiary">{key}: </span>
-                  <span className="text-mono">{value}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      </div>
 
       {/* 탭 */}
       <div className="tabs">
