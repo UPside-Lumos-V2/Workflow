@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal } from './shared';
 import type { Case, CasePriority, CaseIncidentData } from '../types';
 import { parseCaseFromText } from '../lib/gemini';
+import { sendTelegramNotification } from '../lib/telegram';
 
 interface CreateCaseModalProps {
   isOpen: boolean;
@@ -99,6 +100,8 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
         metadata,
         incidentData,
       });
+      // 텔레그램 알림
+      sendTelegramNotification(`🚨 *새 케이스:* "${title.trim()}"\nPriority: ${priority} | ${protocol.trim() || 'N/A'} | ${chain.trim() || 'N/A'}`);
       reset();
     } finally {
       setSubmitting(false);

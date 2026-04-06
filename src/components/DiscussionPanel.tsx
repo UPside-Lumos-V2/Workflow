@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useDiscussions, useMembers } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { MemberAvatar } from './shared';
+import { sendTelegramNotification } from '../lib/telegram';
 import type { DiscussionContext, Discussion, DiscussionAttachment } from '../types';
 
 /** 간단 Markdown → HTML (bold, code, link, 줄바꿈, 멘션) */
@@ -75,6 +76,10 @@ export function DiscussionPanel({ contextType, contextId, contextLabel }: Discus
       parentId: replyTo,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
+    // 텔레그램 알림
+    const authorName = currentMember ? members.find((m) => m.id === currentMember.id)?.name ?? '팀원' : '팀원';
+    const preview = content.trim().length > 80 ? content.trim().slice(0, 80) + '...' : content.trim();
+    sendTelegramNotification(`💬 *${authorName}*가 "${contextLabel}"에 댓글:\n${preview}`);
     setContent('');
     setReplyTo(null);
     setAttachments([]);

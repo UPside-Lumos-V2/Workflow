@@ -5,6 +5,7 @@ import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState, Modal } from '../components/shared';
 import { DiscussionPanel } from '../components/DiscussionPanel';
 import { getWeekStartDate, toLocalDateString } from '../lib/date';
+import { sendTelegramNotification } from '../lib/telegram';
 import type { Weekly, MemberTask } from '../types';
 
 function getWeekLabel(weekStart: string): string {
@@ -601,6 +602,9 @@ export function WeeklyPage() {
                               [currentMember.id]: [...existing, { text: task.text, noteId, done: false, source: 'summary' as const }],
                             },
                           });
+                          // 텔레그램 알림
+                          const memberObj = members.find((m) => m.id === currentMember.id);
+                          sendTelegramNotification(`📌 *${memberObj?.name ?? '팀원'}*에게 배정: "${task.text}"`);
                         }, 250);
                       }}
                       onDoubleClick={(e) => {
