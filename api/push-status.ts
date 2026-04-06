@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
  * 프론트엔드에서 주간 현황 데이터를 Supabase bot_weekly_cache에 push
- * WeeklyPage에서 데이터 변경 시 호출됨
+ * 포함 데이터: members(할일), goals(목표), cases(활성 케이스)
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -17,15 +17,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { memberSummaries } = req.body as {
-      memberSummaries: Record<string, { total: number; done: number; tasks: string[] }>;
+    const { members, goals, cases } = req.body as {
+      members?: Record<string, { total: number; done: number; tasks: string[] }>;
+      goals?: string[];
+      cases?: { title: string; priority: string; protocol: string; chain: string }[];
+      // 하위호환: 이전 memberSummaries 키
+      memberSummaries?: Record<string, { total: number; done: number; tasks: string[] }>;
     };
 
-    if (!memberSummaries) {
-      return res.status(400).json({ error: 'memberSummaries required' });
-    }
+    const data = {
+      members: members ?? req.body.memberSummaries ?? {},
+      goals: goals ?? [],
+      cases: cases ?? [],
+    };
 
-    // Supabase REST API — upsert
     const upsertRes = await fetch(`${supabaseUrl}/rest/v1/bot_weekly_cache`, {
       method: 'POST',
       headers: {
@@ -36,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         id: 'current',
-        data: memberSummaries,
+        data,
         updated_at: new Date().toISOString(),
       }),
     });

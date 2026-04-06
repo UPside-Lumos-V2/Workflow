@@ -20,8 +20,14 @@ async function tgSend(
   return res.json();
 }
 
-/** Supabase REST API에서 캐시된 주간 데이터 가져오기 */
-async function getCachedWeeklyData(): Promise<Record<string, { total: number; done: number; tasks: string[] }> | null> {
+interface CachedData {
+  members?: Record<string, { total: number; done: number; tasks: string[] }>;
+  goals?: string[];
+  cases?: { title: string; priority: string; protocol: string; chain: string }[];
+}
+
+/** Supabase REST API에서 캐시된 데이터 가져오기 */
+async function getCachedData(): Promise<CachedData | null> {
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) return null;
@@ -71,6 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           }
           keyboard.push(row);
         }
+        // 취소 버튼 추가
+        keyboard.push([{ text: '❌ 닫기', callback_data: 'cancel' }]);
 
         await tgSend(botToken, 'sendMessage', {
           chat_id: chatId,
@@ -81,43 +89,93 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (text === '/lumos_cases' || text.startsWith('/lumos_cases@')) {
-        await tgSend(botToken, 'sendMessage', {
-          chat_id: chatId,
-          text: '🔍 *Active 케이스 확인:*\n[LUMOS Workflow에서 확인](https://lumos-workflow.vercel.app/app/cases)',
-          parse_mode: 'Markdown',
-        });
+        const cached = await getCachedData();
+        if (cached?.cases && cached.cases.length > 0) {
+          const caseList = cached.cases.map((c, i) => {
+            const priority = c.priority === 'high' ? '🔴' : c.priority === 'medium' ? '🟡' : '🟢';
+            return `${i + 1}. ${priority} *${c.title}*\n    ${c.protocol || '-'} | ${c.chain || '-'}`;
+          }).join('\n');
+          await tgSend(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: `🔍 *Active 케이스 (${cached.cases.length}개):*\n\n${caseList}\n\n[상세 보기](https://lumos-workflow.vercel.app/app/cases)`,
+            parse_mode: 'Markdown',
+          });
+        } else {
+          await tgSend(botToken, 'sendMessage', {
+            chat_id: chatId,
+            text: '🔍 *Active 케이스:*\n캐시된 케이스가 없습니다.\n[LUMOS에서 확인](https://lumos-workflow.vercel.app/app/cases)',
+            parse_mode: 'Markdown',
+          });
+        }
       }
 
       if (text === '/lumos_weekly' || text.startsWith('/lumos_weekly@')) {
+        const cached = await getCachedData();
+        let msg = '📋 *이번 주 보드:*\n';
+        if (cached?.goals && cached.goals.length > 0) {
+          msg += '\n🎯 *이번 주 목표:*\n';
+          msg += cached.goals.map((g, i) => `${i + 1}. ${g}`).join('\n');
+        } else {
+          msg += '\n⚠️ 설정된 목표가 없습니다.';
+        }
+        // 팀원별 진행률 요약
+        if (cached?.members) {
+          msg += '\n\n📊 *팀원별 진행률:*\n';
+          for (const name of MEMBERS) {
+            const info = cached.members[name];
+            if (info && info.total > 0) {
+              const pct = Math.round((info.done / info.total) * 100);
+              const bar = '█'.repeat(Math.round(pct / 10)) + '░'.repeat(10 - Math.round(pct / 10));
+              msg += `${name}: ${bar} ${pct}% (${info.done}/${info.total})\n`;
+            }
+          }
+        }
+        msg += '\n[상세 보기](https://lumos-workflow.vercel.app/app/weekly)';
         await tgSend(botToken, 'sendMessage', {
           chat_id: chatId,
-          text: '📋 *이번 주 보드:*\n[LUMOS Workflow에서 확인](https://lumos-workflow.vercel.app/app/weekly)',
+          text: msg,
           parse_mode: 'Markdown',
         });
       }
     }
 
-    // ── 2) Callback query 처리 (inline keyboard 응답) ──
+    // ── 2) Callback query 처리 ──
     if (update.callback_query) {
       const callbackId = update.callback_query.id;
       const data = update.callback_query.data as string;
       const chatId = update.callback_query.message?.chat.id;
+      const messageId = update.callback_query.message?.message_id;
 
       await tgSend(botToken, 'answerCallbackQuery', {
         callback_query_id: callbackId,
       });
 
+      // 취소: 메시지 삭제
+      if (data === 'cancel' && chatId && messageId) {
+        await tgSend(botToken, 'deleteMessage', {
+          chat_id: chatId,
+          message_id: messageId,
+        });
+        return res.status(200).json({ ok: true });
+      }
+
       if (data.startsWith('status:') && chatId) {
         const memberName = data.split(':')[1];
-        const cached = await getCachedWeeklyData();
+        const cached = await getCachedData();
 
-        if (cached && cached[memberName]) {
-          const info = cached[memberName];
+        if (cached?.members && cached.members[memberName]) {
+          const info = cached.members[memberName];
           const progress = info.total > 0
             ? `${info.done}/${info.total} (${Math.round((info.done / info.total) * 100)}%)`
             : '할 일 없음';
           const taskList = info.tasks.length > 0
-            ? info.tasks.map((t, i) => `${i + 1}. ${t}`).join('\n')
+            ? info.tasks.map((t, i) => {
+                // ✅ 완료 → 취소선, ⬜ 미완료 → 그대로
+                if (t.startsWith('✅')) {
+                  return `${i + 1}. ~${t.slice(2).trim()}~`;
+                }
+                return `${i + 1}. ${t}`;
+              }).join('\n')
             : '배정된 할 일 없음';
 
           await tgSend(botToken, 'sendMessage', {

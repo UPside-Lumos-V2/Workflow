@@ -384,24 +384,34 @@ export function WeeklyPage() {
     if (currentWeekly) edit(currentWeekly.id, patch);
   };
 
-  // 텔레그램 봇용 데이터 push (memberTasks 변경 시 Supabase에 캐시)
+  // 텔레그램 봇용 데이터 push (데이터 변경 시 Supabase에 캐시)
   useEffect(() => {
-    if (!currentWeekly?.memberTasks) return;
-    const memberSummaries: Record<string, { total: number; done: number; tasks: string[] }> = {};
+    if (!currentWeekly) return;
+    const memberData: Record<string, { total: number; done: number; tasks: string[] }> = {};
     for (const m of members) {
       const tasks = currentWeekly.memberTasks[m.id] ?? [];
-      memberSummaries[m.name] = {
+      memberData[m.name] = {
         total: tasks.length,
         done: tasks.filter((t) => t.done).length,
         tasks: tasks.map((t) => `${t.done ? '✅' : '⬜'} ${t.text}`),
       };
     }
+    const activeCases = cases.filter((c) => c.status !== 'closed').map((c) => ({
+      title: c.title,
+      priority: c.priority,
+      protocol: c.incidentData?.protocol ?? c.metadata?.protocol ?? '',
+      chain: c.incidentData?.chain ?? c.metadata?.chain ?? '',
+    }));
     fetch('/api/push-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberSummaries }),
+      body: JSON.stringify({
+        members: memberData,
+        goals: currentWeekly.goals ?? [],
+        cases: activeCases,
+      }),
     }).catch(() => { /* fire-and-forget */ });
-  }, [currentWeekly?.memberTasks, members]);
+  }, [currentWeekly?.memberTasks, currentWeekly?.goals, members, cases]);
 
   // 팀원별 할 일 업데이트
   const updateMemberTasks = (memberId: string, tasks: MemberTask[]) => {
