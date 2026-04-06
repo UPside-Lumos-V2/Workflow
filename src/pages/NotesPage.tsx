@@ -36,9 +36,9 @@ export function NotesPage() {
   // 검색 필터
   const filtered = search.trim()
     ? tabFiltered.filter((n) =>
-        n.title.toLowerCase().includes(search.toLowerCase()) ||
-        n.content.toLowerCase().includes(search.toLowerCase())
-      )
+      n.title.toLowerCase().includes(search.toLowerCase()) ||
+      n.content.toLowerCase().includes(search.toLowerCase())
+    )
     : tabFiltered;
 
   const handleCreateNote = async () => {
@@ -156,7 +156,7 @@ export function NotesPage() {
         <h1 className="page-title">노트</h1>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" onClick={handleCreateMeeting}>
-            📋 회의록 작성
+            회의록 작성
           </button>
           <button className="btn btn-primary" onClick={handleCreateNote}>
             + 새 노트

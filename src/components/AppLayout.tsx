@@ -22,6 +22,13 @@ export function AppLayout() {
   // ⌘K / Ctrl+K 단축키
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // 입력 중이면 기본 동작 유지 (검색 모달 열지 않음)
+      const target = e.target as HTMLElement;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable
+        || target.closest('.bn-editor, .ProseMirror, .blocknote-wrapper')) {
+        return;
+      }
       e.preventDefault();
       setSearchOpen((prev) => !prev);
     }
@@ -142,7 +149,7 @@ export function AppLayout() {
             onClick={() => setSearchOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#888' }}
           >
-            🔍 <span style={{ display: 'inline-flex', gap: 2 }}>
+            <span style={{ display: 'inline-flex', gap: 2 }}>
               <kbd style={{
                 fontSize: 10, fontWeight: 600, padding: '1px 5px',
                 background: 'rgba(0,0,0,0.06)', borderRadius: 4,

@@ -539,7 +539,7 @@ export function WeeklyPage() {
                     <span className="text-tertiary"> ({unassigned.length})</span>
                   </div>
                   <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 8 }}>
-                    클릭하면 현재 선택된 팀원에게 배정됩니다
+                    클릭=배정 · 더블클릭=수정 · ✕=삭제
                   </div>
                   {unassigned.map((task, idx) => (
                     <div
@@ -549,6 +549,7 @@ export function WeeklyPage() {
                         gap: 6, cursor: 'pointer',
                         opacity: 0.8,
                         transition: 'opacity 0.2s',
+                        display: 'flex', alignItems: 'center',
                       }}
                       onClick={() => {
                         if (!currentMember) return;
@@ -564,11 +565,42 @@ export function WeeklyPage() {
                           },
                         });
                       }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        const newText = prompt('할 일 수정', task.text);
+                        if (newText !== null && newText.trim()) {
+                          const updatedUnassigned = [...unassigned];
+                          updatedUnassigned[idx] = { ...task, text: newText.trim() };
+                          update({
+                            memberTasks: {
+                              ...currentWeekly.memberTasks,
+                              unassigned: updatedUnassigned,
+                            },
+                          });
+                        }
+                      }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '1'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8'; }}
                     >
                       <span style={{ color: 'var(--color-text-tertiary)', marginRight: 4 }}>○</span>
                       <span style={{ flex: 1 }}>{task.text}</span>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '0 4px', fontSize: 14, color: '#999', flexShrink: 0 }}
+                        title="삭제"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const updatedUnassigned = unassigned.filter((_, i) => i !== idx);
+                          update({
+                            memberTasks: {
+                              ...currentWeekly.memberTasks,
+                              unassigned: updatedUnassigned,
+                            },
+                          });
+                        }}
+                      >
+                        ✕
+                      </button>
                     </div>
                   ))}
                 </div>

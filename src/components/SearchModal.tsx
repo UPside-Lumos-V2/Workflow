@@ -179,7 +179,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
             padding: '16px 20px',
             borderBottom: query ? '1px solid rgba(0, 0, 0, 0.06)' : 'none',
           }}>
-            <span style={{ fontSize: 20, opacity: 0.5, flexShrink: 0 }}>🔍</span>
             <input
               ref={inputRef}
               type="text"

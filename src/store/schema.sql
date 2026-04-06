@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS lumos_cases (
   priority TEXT NOT NULL DEFAULT 'medium',
   description TEXT DEFAULT '',
   metadata JSONB DEFAULT '{}',
+  incident_data JSONB,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -57,13 +58,18 @@ CREATE TABLE IF NOT EXISTS lumos_artifacts (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Discussions
+-- Discussions (범용 컨텍스트: case/task/topic)
 CREATE TABLE IF NOT EXISTS lumos_discussions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   case_id UUID REFERENCES lumos_cases(id) ON DELETE CASCADE,
   task_id UUID REFERENCES lumos_tasks(id) ON DELETE SET NULL,
   author_id UUID REFERENCES lumos_members(id) ON DELETE SET NULL,
   content TEXT NOT NULL,
+  context_type TEXT NOT NULL DEFAULT 'case',
+  context_id TEXT NOT NULL DEFAULT '',
+  context_label TEXT DEFAULT '',
+  parent_id UUID REFERENCES lumos_discussions(id) ON DELETE CASCADE,
+  attachments JSONB DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
