@@ -364,8 +364,8 @@ export function WeeklyPage() {
     update({ memberTasks: updated });
   };
 
-  // 할 일 추가 + 노트 자동 생성
-  const addMemberTask = async (memberId: string, text: string) => {
+  // 할 일 추가 + 노트 자동 생성 (모든 배정 경로 공통)
+  const addMemberTask = async (memberId: string, text: string, source: 'manual' | 'summary' = 'manual') => {
     const newNote = await addNote({
       title: text,
       content: '',
@@ -377,7 +377,7 @@ export function WeeklyPage() {
     });
     const noteId = newNote?.id ?? '';
     const existing = currentWeekly?.memberTasks[memberId] ?? [];
-    updateMemberTasks(memberId, [...existing, { text, noteId, done: false, source: 'manual' }]);
+    updateMemberTasks(memberId, [...existing, { text, noteId, done: false, source }]);
   };
 
   // 할 일 텍스트 클릭 → 현재 팀원의 input에 prefix 설정 (목표 클릭과 동일 동작)
@@ -541,7 +541,9 @@ export function WeeklyPage() {
                   <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 8 }}>
                     클릭=배정 · 더블클릭=수정 · ✕=삭제
                   </div>
-                  {unassigned.map((task, idx) => (
+                  {unassigned.map((task, idx) => {
+                    let clickTimer: ReturnType<typeof setTimeout> | null = null;
+                    return (
                     <div
                       key={idx}
                       className="weekly-list-item"
@@ -552,21 +554,26 @@ export function WeeklyPage() {
                         display: 'flex', alignItems: 'center',
                       }}
                       onClick={() => {
-                        if (!currentMember) return;
-                        // 미배정에서 제거
-                        const updatedUnassigned = unassigned.filter((_, i) => i !== idx);
-                        // 해당 팀원에게 추가
-                        const memberTasks = currentWeekly.memberTasks[currentMember.id] ?? [];
-                        update({
-                          memberTasks: {
-                            ...currentWeekly.memberTasks,
-                            unassigned: updatedUnassigned,
-                            [currentMember.id]: [...memberTasks, { ...task, source: 'summary' as const }],
-                          },
-                        });
+                        // 더블클릭과 분리: 250ms 후 싱글클릭 실행
+                        if (clickTimer) clearTimeout(clickTimer);
+                        clickTimer = setTimeout(async () => {
+                          if (!currentMember) return;
+                          // 미배정에서 제거
+                          const updatedUnassigned = unassigned.filter((_, i) => i !== idx);
+                          update({
+                            memberTasks: {
+                              ...currentWeekly.memberTasks,
+                              unassigned: updatedUnassigned,
+                            },
+                          });
+                          // 팀원에게 추가 + 노트 자동 생성
+                          await addMemberTask(currentMember.id, task.text, 'summary');
+                        }, 250);
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation();
+                        // 싱글클릭 취소
+                        if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
                         const newText = prompt('할 일 수정', task.text);
                         if (newText !== null && newText.trim()) {
                           const updatedUnassigned = [...unassigned];
@@ -602,7 +609,8 @@ export function WeeklyPage() {
                         ✕
                       </button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             })()}
@@ -680,11 +688,19 @@ export function WeeklyPage() {
                 })()}
               </div>
               <div className="form-group">
-                <label className="form-label">할 일 목록</label>
+                <label className="form-label">할 일 목록 <span className="text-tertiary" style={{ fontWeight: 400, fontSize: 'var(--font-size-xs)' }}>클릭 시 선택된 팀원에게 배정</span></label>
                 <ListEditor
                   items={currentWeekly.mentoringActionItems}
                   onUpdate={(mentoringActionItems) => update({ mentoringActionItems })}
                   placeholder="할 일 입력"
+                  onItemClick={(item) => {
+                    if (!currentMember || !currentWeekly) return;
+                    // 할 일 목록에서 제거
+                    const updatedItems = currentWeekly.mentoringActionItems.filter((t) => t !== item);
+                    update({ mentoringActionItems: updatedItems });
+                    // 팀원에게 추가 + 노트 자동 생성
+                    addMemberTask(currentMember.id, item);
+                  }}
                 />
               </div>
             </div>
