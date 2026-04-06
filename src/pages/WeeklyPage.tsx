@@ -498,27 +498,25 @@ export function WeeklyPage() {
             )}
           </Section>
 
-          {/* ── 관련 케이스 (참조용) ── */}
-          {currentWeekly.activeCaseIds.length > 0 && (
+          {/* ── 관련 케이스 (active/review 케이스 동적 표시) ── */}
+          {cases.filter((c) => c.status !== 'closed').length > 0 && (
             <Section title="이번 주 관련 케이스">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {currentWeekly.activeCaseIds.map((caseId) => {
-                  const c = cases.find((x) => x.id === caseId);
-                  if (!c) return null;
-                  return (
+                {cases.filter((c) => c.status !== 'closed').map((c) => (
                     <span
-                      key={caseId}
+                      key={c.id}
                       style={{
                         background: 'var(--color-bg-tertiary)',
                         padding: '4px 10px',
                         borderRadius: 'var(--radius-full)',
                         fontSize: 'var(--font-size-xs)',
+                        cursor: 'pointer',
                       }}
+                      onClick={() => navigate(`/app/cases/${c.id}`)}
                     >
                       {c.title}
                     </span>
-                  );
-                })}
+                ))}
               </div>
             </Section>
           )}

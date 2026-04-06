@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal } from './shared';
 import type { Case, CasePriority, CaseIncidentData } from '../types';
+import { parseCaseFromText } from '../lib/gemini';
 
 interface CreateCaseModalProps {
   isOpen: boolean;
@@ -20,6 +21,11 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
   const [lumosScore, setLumosScore] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // AI 자동 채우기 상태
+  const [aiInput, setAiInput] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
+
   const reset = () => {
     setTitle('');
     setPriority('medium');
@@ -30,6 +36,30 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
     setHackedDate('');
     setAttackVectorStr('');
     setLumosScore('');
+    setAiInput('');
+    setAiError('');
+  };
+
+  const handleAiFill = async () => {
+    if (!aiInput.trim()) return;
+    setAiLoading(true);
+    setAiError('');
+    try {
+      const result = await parseCaseFromText(aiInput);
+      if (result.title) setTitle(result.title);
+      if (result.protocol) setProtocol(result.protocol);
+      if (result.chain) setChain(result.chain);
+      if (result.hackedAmount) setHackedAmount(String(result.hackedAmount));
+      if (result.hackedDate) setHackedDate(result.hackedDate);
+      if (result.attackVector.length > 0) setAttackVectorStr(result.attackVector.join(', '));
+      if (result.description) setDescription(result.description);
+      if (result.priority) setPriority(result.priority);
+      if (result.lumosScore !== null) setLumosScore(String(result.lumosScore));
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI 파싱 실패');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -99,6 +129,58 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' }}>
+        {/* AI 자동 채우기 섹션 */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(159,52,180,0.06), rgba(30,58,101,0.06))',
+          border: '1px solid rgba(159,52,180,0.15)',
+          borderRadius: 'var(--radius-md)',
+          padding: 12,
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontWeight: 700, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: '#9F34B4',
+          }}>
+            <span style={{ fontSize: 16 }}>✦</span> AI 자동 채우기
+          </div>
+          <textarea
+            value={aiInput}
+            onChange={(e) => setAiInput(e.target.value)}
+            placeholder={'사건 정보를 자유롭게 입력하세요.\n예: "CrossCurve 프로토콜이 이더리움에서 Flash Loan 공격으로 120만 달러 해킹당함. 2024년 3월 15일에 발생."'}
+            rows={5}
+            style={{ fontSize: 'var(--font-size-sm)', marginBottom: 8, width: '100%', resize: 'vertical' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              className="btn btn-sm"
+              onClick={handleAiFill}
+              disabled={!aiInput.trim() || aiLoading}
+              style={{
+                background: aiLoading ? 'var(--color-bg-tertiary)' : '#9F34B4',
+                color: 'white', border: 'none',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {aiLoading ? (
+                <>
+                  <span style={{
+                    width: 14, height: 14,
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: 'white',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                    display: 'inline-block',
+                  }} />
+                  분석 중...
+                </>
+              ) : '자동 채우기'}
+            </button>
+            {aiError && (
+              <span style={{ color: '#EF4444', fontSize: 'var(--font-size-xs)' }}>{aiError}</span>
+            )}
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+
         <div className="form-group" style={{ marginBottom: 0 }}>
           <label className="form-label">제목 <span style={{ color: '#EF4444' }}>*</span></label>
           <input
