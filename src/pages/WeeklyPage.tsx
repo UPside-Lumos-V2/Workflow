@@ -48,11 +48,20 @@ function ListEditor({
 
   return (
     <div>
-      {items.map((item, idx) => (
+      {items.map((item, idx) => {
+        let clickGuard: ReturnType<typeof setTimeout> | null = null;
+        return (
         <div key={idx} className="weekly-list-item">
           <span
             style={{ flex: 1, cursor: onItemClick ? 'pointer' : 'default' }}
-            onClick={() => onItemClick?.(item)}
+            onClick={() => {
+              if (!onItemClick) return;
+              // 더블클릭 방지: 300ms 디바운스
+              if (clickGuard) clearTimeout(clickGuard);
+              clickGuard = setTimeout(() => {
+                onItemClick(item);
+              }, 300);
+            }}
           >
             {item}
           </span>
@@ -64,7 +73,8 @@ function ListEditor({
             ×
           </button>
         </div>
-      ))}
+        );
+      })}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <input
           type="text"

@@ -11,7 +11,7 @@ import type { MeetingSummary } from '../types';
 export function NoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getById, edit, remove, add: addNote } = useNotes();
+  const { getById, edit, remove, add: addNote, loading: notesLoading } = useNotes();
   const { items: cases } = useCases();
   const { items: weeklies, edit: editWeekly } = useWeekly();
   const { items: members } = useMembers();
@@ -177,6 +177,23 @@ export function NoteEditorPage() {
   };
 
   if (!note) {
+    // 아직 로딩 중이면 스피너 표시
+    if (notesLoading) {
+      return (
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', minHeight: 300, gap: 16,
+        }}>
+          <div style={{
+            width: 36, height: 36, border: '3px solid var(--color-border-light)',
+            borderTopColor: '#9F34B4', borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+          }} />
+          <span className="text-tertiary" style={{ fontSize: 'var(--font-size-sm)' }}>노트 불러오는 중...</span>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      );
+    }
     return (
       <div className="empty-state">
         <p>노트를 찾을 수 없습니다</p>
