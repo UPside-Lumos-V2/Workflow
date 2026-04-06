@@ -94,10 +94,21 @@ export function DashboardPage() {
   const { items: notes } = useNotes();
   const { items: members } = useMembers();
 
-  const currentWeekly = useMemo(
-    () => weeklies.find((w) => w.weekStart === getWeekStartDate()),
-    [weeklies],
-  );
+  const currentWeekly = useMemo(() => {
+    const target = getWeekStartDate();
+    const exact = weeklies.find((w) => w.weekStart === target);
+    if (exact) return exact;
+    // 월→화 마이그레이션 fallback: ±6일 탐색
+    const base = new Date(target + 'T00:00:00');
+    for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
+      const probe = new Date(base);
+      probe.setDate(probe.getDate() + offset);
+      const probeStr = `${probe.getFullYear()}-${String(probe.getMonth() + 1).padStart(2, '0')}-${String(probe.getDate()).padStart(2, '0')}`;
+      const match = weeklies.find((w) => w.weekStart === probeStr);
+      if (match) return match;
+    }
+    return undefined;
+  }, [weeklies]);
 
   const caseStats = useMemo(() => {
     const counts = { active: 0, review: 0, closed: 0 };

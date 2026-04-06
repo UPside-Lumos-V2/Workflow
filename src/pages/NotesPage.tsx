@@ -57,14 +57,24 @@ export function NotesPage() {
 
   /** 이전 주차 데이터를 기반으로 회의록 초안 생성 */
   const buildMeetingDraft = (): string => {
-    // 이전 주 시작일 계산 (현재 주 월요일 - 7일)
+    // 이전 주 시작일 계산 (현재 주 화요일 - 7일)
     const currentWeekStart = getWeekStartDate();
     const prevStart = new Date(currentWeekStart + 'T00:00:00');
     prevStart.setDate(prevStart.getDate() - 7);
     const prevWeekStart = toLocalDateString(prevStart);
 
-    // 이전 주차 weekly 찾기
-    const prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
+    // 이전 주차 weekly 찾기 (±6일 fallback)
+    let prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
+    if (!prevWeekly) {
+      const base = new Date(prevWeekStart + 'T00:00:00');
+      for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
+        const probe = new Date(base);
+        probe.setDate(probe.getDate() + offset);
+        const probeStr = toLocalDateString(probe);
+        prevWeekly = weeklies.find((w) => w.weekStart === probeStr);
+        if (prevWeekly) break;
+      }
+    }
 
     // 멘토(Zeroluck) 제외한 팀원만
     const draftMembers = members.filter((m) => m.name.toLowerCase() !== 'zeroluck');
@@ -93,9 +103,19 @@ export function NotesPage() {
     const title = `${now.getMonth() + 1}월 ${now.getDate()}일 멘토링`;
     const content = buildMeetingDraft();
 
-    // 현재 주차 weekly 찾기/연결
+    // 현재 주차 weekly 찾기/연결 (±6일 fallback)
     const weekStart = getWeekStartDate();
-    const currentWeekly = weeklies.find((w) => w.weekStart === weekStart);
+    let currentWeekly = weeklies.find((w) => w.weekStart === weekStart);
+    if (!currentWeekly) {
+      const base = new Date(weekStart + 'T00:00:00');
+      for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
+        const probe = new Date(base);
+        probe.setDate(probe.getDate() + offset);
+        const probeStr = toLocalDateString(probe);
+        currentWeekly = weeklies.find((w) => w.weekStart === probeStr);
+        if (currentWeekly) break;
+      }
+    }
 
     const newNote = await add({
       title,

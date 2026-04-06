@@ -317,9 +317,9 @@ export function WeeklyPage() {
     // 정확 매칭
     const exact = weeklies.find((w) => w.weekStart === currentWeekStart);
     if (exact) return exact;
-    // 월→화 마이그레이션 fallback: ±1일 범위 탐색
+    // 월→화 마이그레이션 fallback: ±6일 범위 탐색 (월요일에는 최대 6일 차이)
     const startDate = new Date(currentWeekStart + 'T00:00:00');
-    for (const offset of [-1, 1]) {
+    for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
       const probe = new Date(startDate);
       probe.setDate(probe.getDate() + offset);
       const probeStr = toLocalDateString(probe);
