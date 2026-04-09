@@ -15,6 +15,7 @@ const FILTER_TABS: Array<{ label: string; value: CaseStatus | 'all' }> = [
 
 /** 피해금액 포맷 */
 function formatUsd(n: number): string {
+  if (n == null || isNaN(n)) return '$0';
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
@@ -29,14 +30,19 @@ function monthLabel(date: string): string {
 
 /** 피해금액 추출 (incidentData → metadata fallback) */
 function getHackedAmount(c: Case): number {
-  if (c.incidentData?.amount != null) return c.incidentData.amount;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inc = c.incidentData as any;
+  if (inc?.amount != null) return inc.amount;
+  if (inc?.hackedAmount != null) return inc.hackedAmount; // legacy fallback
   if (c.metadata?.lossUsd) return parseInt(c.metadata.lossUsd) || 0;
   if (c.metadata?.loss_usd) return parseInt(c.metadata.loss_usd) || 0;
   return 0;
 }
 
 function getHackedDate(c: Case): string {
-  return c.incidentData?.hackedAt || c.createdAt;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const inc = c.incidentData as any;
+  return inc?.hackedAt || inc?.hackedDate || c.createdAt; // legacy fallback
 }
 
 function getProtocol(c: Case): string {

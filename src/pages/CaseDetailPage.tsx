@@ -22,6 +22,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
 const STATUS_OPTIONS: CaseStatus[] = ['active', 'review', 'closed'];
 
 function formatUsd(n: number): string {
+  if (n == null || isNaN(n)) return '$0';
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(1)}B`;
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
