@@ -12,6 +12,7 @@ import { WeeklyPage } from './pages/WeeklyPage';
 import { NotesPage } from './pages/NotesPage';
 import { NoteEditorPage } from './pages/NoteEditorPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { AnalyzerPage } from './pages/AnalyzerPage';
 
 
 
@@ -38,6 +39,7 @@ function AuthenticatedApp() {
           <Route path="weekly" element={<WeeklyPage />} />
           <Route path="notes" element={<NotesPage />} />
           <Route path="notes/:id" element={<NoteEditorPage />} />
+          <Route path="analyzer" element={<AnalyzerPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>

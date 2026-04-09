@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/app/cases', label: '케이스' },
   { to: '/app/weekly', label: '주간 보드' },
   { to: '/app/notes', label: '노트' },
+  { to: '/app/analyzer', label: '분석기' },
 ];
 
 export function AppLayout() {
@@ -177,5 +178,6 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/app/weekly') return '주간 보드';
   if (pathname === '/app/notes') return '노트';
   if (pathname.startsWith('/app/notes/')) return '노트 편집';
+  if (pathname === '/app/analyzer') return '분석기';
   return '';
 }
