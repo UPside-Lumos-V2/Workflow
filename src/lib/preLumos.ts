@@ -24,10 +24,23 @@ import {
 // Generic Gemini API call via /api/analyze
 // ─────────────────────────────────────────────────────
 
+import { supabase } from './supabase';
+
+async function getAuthToken(): Promise<string> {
+  if (!supabase) return '';
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || '';
+}
+
 async function callGemini<T>(systemInstruction: string, prompt: string): Promise<T> {
+  const token = await getAuthToken();
+
   const res = await fetch('/api/analyze', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({ systemInstruction, prompt }),
   });
 
@@ -116,6 +129,24 @@ export async function runOrchestrator(
     exceptions,
   });
 
+  // F-2: 재검증 결과 소비 — blocker가 남아있으면 해당 row 제외
+  if (repairResult.revalidation?.status === 'fail') {
+    const blockerSlugs = new Set(
+      (repairResult.revalidation.findings || [])
+        .filter(f => f.severity === 'blocker' && f.slug)
+        .map(f => f.slug!),
+    );
+    if (blockerSlugs.size > 0) {
+      return {
+        finalRows: repairedRows.filter(r => !blockerSlugs.has(r.slug)),
+        exceptions: [
+          ...exceptions,
+          ...Array.from(blockerSlugs).map(s => `${s}: revalidation blocker`),
+        ],
+      };
+    }
+  }
+
   return { finalRows: repairedRows, exceptions };
 }
 
@@ -149,7 +180,7 @@ export function parseAndValidateImportJson(
     return { rows: [], errors: ['CON-001: 최상위가 배열이 아닙니다.'] };
   }
 
-  // 3. 각 행 구조 확인
+  // 3. 각 행 구조 확인 — F-1: 필수 필드 누락 row는 skip
   const rows: PreLumosRow[] = [];
   for (let i = 0; i < parsed.length; i++) {
     const row = parsed[i];
@@ -159,21 +190,28 @@ export function parseAndValidateImportJson(
     }
 
     // 필수 필드 확인
+    let hasRequiredError = false;
     for (const field of REQUIRED_FIELDS) {
       if (!(field in row) || row[field] === undefined || row[field] === null) {
         errors.push(`Row ${i} (${row.slug || row.name || '?'}): 필수 필드 '${field}' 누락`);
+        hasRequiredError = true;
       }
     }
 
     // chains 배열 확인
     if ('chains' in row && !Array.isArray(row.chains)) {
       errors.push(`Row ${i} (${row.slug || '?'}): chains가 배열이 아닙니다.`);
+      hasRequiredError = true;
     }
 
     // amount 숫자 확인
     if ('amount' in row && typeof row.amount !== 'number') {
       errors.push(`Row ${i} (${row.slug || '?'}): amount가 숫자가 아닙니다.`);
+      hasRequiredError = true;
     }
+
+    // 에러 있는 row는 skip (fail-closed)
+    if (hasRequiredError) continue;
 
     rows.push(row as PreLumosRow);
   }
@@ -254,9 +292,9 @@ export function preLumosRowToCaseInput(row: PreLumosRow): {
       postIncidentAuditStatus: row.postIncidentAuditStatus,
       postmortemStatus: row.postmortemStatus,
       compensation: row.compensation,
-      preAudits: row.preAudits,
-      postAudits: row.postAudits,
-      postmortem: row.postmortem,
+      preAudits: row.preAudits ?? [],
+      postAudits: row.postAudits ?? [],
+      postmortem: row.postmortem ?? [],
       fund: row.fund,
       twitter: row.twitter,
       website: row.website,

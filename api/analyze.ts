@@ -1,17 +1,37 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
 
 /**
- * Call 1: 추출 + 정규화 (Phase 1-4)
+ * Gemini 3.1 Pro 호출 엔드포인트 (인증 필수)
  * POST /api/analyze
- * Body: { rawText: string, year?: number }
+ * Body: { systemInstruction: string, prompt: string }
  */
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent';
 
+const MAX_PROMPT_LENGTH = 50_000;       // 50KB
+const MAX_INSTRUCTION_LENGTH = 20_000;  // 20KB
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // F-3: Supabase 인증 검증
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization header required' });
+  }
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseKey) {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data: { user }, error } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid or expired auth token' });
+    }
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -20,15 +40,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { rawText, year, systemInstruction, prompt } = req.body as {
-      rawText?: string;
-      year?: number;
+    const { systemInstruction, prompt } = req.body as {
       systemInstruction: string;
       prompt: string;
     };
 
     if (!prompt || !systemInstruction) {
       return res.status(400).json({ error: 'systemInstruction and prompt are required' });
+    }
+
+    // 입력 크기 제한
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      return res.status(400).json({ error: `prompt exceeds ${MAX_PROMPT_LENGTH} characters` });
+    }
+    if (systemInstruction.length > MAX_INSTRUCTION_LENGTH) {
+      return res.status(400).json({ error: `systemInstruction exceeds ${MAX_INSTRUCTION_LENGTH} characters` });
     }
 
     const geminiRes = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
