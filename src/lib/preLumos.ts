@@ -248,23 +248,25 @@ export function preLumosRowToCaseInput(row: PreLumosRow): {
   metadata: Record<string, string>;
   incidentData: CaseIncidentData;
 } {
-  // scoreTimeline 생성
+  // scoreTimeline 생성 — 대소문자 무관 비교 (Gemini가 'Yes'/'YES' 등 반환 가능)
+  const isYes = (v: string | undefined | null) => v?.toLowerCase() === 'yes';
+
   const timeline: ScoreTimelineEntry[] = DEFAULT_SCORE_TIMELINE.map((entry) => {
     const clone = { ...entry };
     if (entry.label === 'Hacked') {
       clone.date = row.hackedAt;
       clone.status = 'completed';
     }
-    if (entry.label === 'Pre-Incident Audit' && row.preIncidentAuditStatus === 'yes') {
+    if (entry.label === 'Pre-Incident Audit' && isYes(row.preIncidentAuditStatus)) {
       clone.status = 'completed';
     }
-    if (entry.label === 'Post-Mortem Release' && row.postmortemStatus === 'yes') {
+    if (entry.label === 'Post-Mortem Release' && isYes(row.postmortemStatus)) {
       clone.status = 'completed';
     }
-    if (entry.label === 'Post-Incident Audit' && row.postIncidentAuditStatus === 'yes') {
+    if (entry.label === 'Post-Incident Audit' && isYes(row.postIncidentAuditStatus)) {
       clone.status = 'completed';
     }
-    if (entry.label === 'Compensation' && row.compensationStatus === 'yes') {
+    if (entry.label === 'Compensation' && isYes(row.compensationStatus)) {
       clone.status = 'completed';
     }
     return clone;

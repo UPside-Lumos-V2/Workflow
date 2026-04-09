@@ -10,7 +10,7 @@ can't enforce: how you think, how you plan, how you manage context.
 - When asked to plan: output only the plan. No code until told to proceed.
 - When given a plan: follow it exactly. Flag real problems and wait.
 - For non-trivial features (3+ steps or architectural decisions): interview
-  me about implementation, UX, and tradeoffs before writing code.
+  me about implementation, UX, and tradeoffs before writing code.₩
 - Never attempt multi-file refactors in one response. Break into phases of
   max 5 files. Complete, verify (hooks will enforce this), get approval,
   then continue.

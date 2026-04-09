@@ -168,13 +168,11 @@ export function AnalyzerPage() {
     });
   }, [finalRows, selectedSlugs, addCase, updateState]);
 
-  // ── Phase badge color ──
+  // ── Phase badge color ── 
   const phaseColor = (() => {
     if (state.phase === 'error') return 'var(--color-danger, #ef4444)';
     if (state.phase === 'complete') return 'var(--color-success, #22c55e)';
-    if (['extracting', 'validating', 'repairing', 'registering'].includes(state.phase))
-      return 'var(--color-warning, #f59e0b)';
-    return 'var(--color-primary, #6366f1)';
+    return 'var(--color-text-secondary)';
   })();
 
   const isProcessing = ['extracting', 'validating', 'repairing', 'registering'].includes(state.phase);
@@ -287,12 +285,9 @@ export function AnalyzerPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
             <span style={{
-              display: 'inline-block', width: 10, height: 10, borderRadius: '50%',
-              background: phaseColor,
-              animation: isProcessing ? 'pulse 1.5s ease infinite' : 'none',
-            }} />
-            <span style={{ fontWeight: 600, fontSize: 14 }}>
-              {PHASE_LABELS[state.phase] || state.phase}
+              fontSize: 13, fontWeight: 600, color: phaseColor,
+            }}>
+              {isProcessing ? '...' : ''} {PHASE_LABELS[state.phase] || state.phase}
             </span>
           </div>
 
@@ -300,7 +295,8 @@ export function AnalyzerPage() {
           {state.error && (
             <div style={{
               padding: 12, borderRadius: 6, fontSize: 13,
-              background: 'rgba(239,68,68,0.1)', color: 'var(--color-danger, #ef4444)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-danger, #ef4444)',
               marginBottom: 12,
             }}>
               {state.error}
@@ -311,7 +307,8 @@ export function AnalyzerPage() {
           {parseErrors.length > 0 && (
             <div style={{
               padding: 12, borderRadius: 6, fontSize: 13,
-              background: 'rgba(245,158,11,0.1)', color: 'var(--color-warning, #d97706)',
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-secondary)',
               marginBottom: 12, maxHeight: 120, overflow: 'auto',
             }}>
               구조 확인 결과:
@@ -376,13 +373,14 @@ export function AnalyzerPage() {
       {state.phase === 'complete' && (
         <div style={{
           marginTop: 16, padding: 16, borderRadius: 8,
-          background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)',
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-surface)',
         }}>
-          <div style={{ fontWeight: 600, color: 'var(--color-success, #22c55e)', marginBottom: 8 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>
             등록 완료
           </div>
           {state.registeredSlugs.length > 0 && (
-            <div style={{ fontSize: 13, marginBottom: 4 }}>
+            <div style={{ fontSize: 13, marginBottom: 4, color: 'var(--color-text-secondary)' }}>
               성공: {state.registeredSlugs.join(', ')}
             </div>
           )}
@@ -394,13 +392,7 @@ export function AnalyzerPage() {
         </div>
       )}
 
-      {/* pulse animation */}
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-      `}</style>
+
     </div>
   );
 }
@@ -438,44 +430,57 @@ function IncidentCard({ row, selected, onToggle }: {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div style={{
-      padding: 16, borderRadius: 8, marginBottom: 8,
-      border: `1px solid ${selected ? 'var(--color-primary, #6366f1)' : 'var(--color-border)'}`,
-      background: selected ? 'rgba(99,102,241,0.04)' : 'var(--color-surface)',
-      transition: 'all 0.2s',
-    }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input type="checkbox" checked={selected} onChange={onToggle} />
-        <div style={{ flex: 1 }}>
+    <div
+      onClick={onToggle}
+      style={{
+        padding: '14px 16px', borderRadius: 8, marginBottom: 8,
+        border: `1.5px solid ${selected ? 'var(--color-primary, #6366f1)' : 'var(--color-border)'}`,
+        background: 'var(--color-surface)',
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          onClick={(e) => e.stopPropagation()}
+          style={{ marginTop: 3 }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{row.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 3 }}>
+            {row.slug} · {row.hackedAt}
+          </div>
           <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
-            {row.slug} · {row.hackedAt} · {row.chains.join(', ')} · {formatUsd(row.amount)}
+            {row.chains.join(', ')} · {formatUsd(row.amount)} · {row.category}
           </div>
         </div>
-        <span style={{
-          padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-          background: 'rgba(99,102,241,0.1)', color: 'var(--color-primary, #6366f1)',
-        }}>
-          {row.category}
-        </span>
         <button
-          onClick={() => setExpanded(!expanded)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, color: 'var(--color-text-secondary)', padding: '4px 8px',
+          }}
         >
-          {expanded ? '▼' : '▶'}
+          {expanded ? '닫기' : '상세'}
         </button>
       </div>
 
       {expanded && (
-        <div style={{
-          marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--color-border)',
-          fontSize: 12, lineHeight: 1.8,
-        }}>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--color-border)',
+            fontSize: 12, lineHeight: 1.8, color: 'var(--color-text-secondary)',
+          }}
+        >
           {row.summary && <div><b>요약:</b> {row.summary}</div>}
-          <div><b>보상:</b> {row.compensationStatus || 'N/A'}</div>
-          <div><b>사전감사:</b> {row.preIncidentAuditStatus || 'N/A'} ({row.preAudits?.length || 0}건)</div>
-          <div><b>사후감사:</b> {row.postIncidentAuditStatus || 'N/A'} ({row.postAudits?.length || 0}건)</div>
-          <div><b>포스트모템:</b> {row.postmortemStatus || 'N/A'}</div>
+          <div><b>보상:</b> {row.compensationStatus || '미확인'}</div>
+          <div><b>사전감사:</b> {row.preIncidentAuditStatus || '미확인'}</div>
+          <div><b>사후감사:</b> {row.postIncidentAuditStatus || '미확인'}</div>
+          <div><b>포스트모템:</b> {row.postmortemStatus || '미확인'}</div>
           {row.twitter && <div><b>Twitter:</b> @{row.twitter}</div>}
           {row.website && <div><b>Website:</b> {row.website}</div>}
           <details style={{ marginTop: 8 }}>
@@ -505,15 +510,15 @@ function ValidationReport({ contractResult, ruleResult }: {
       <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
         <span style={{
           padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-          background: contractResult.status === 'pass' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-          color: contractResult.status === 'pass' ? '#22c55e' : '#ef4444',
+          border: '1px solid var(--color-border)',
+          color: contractResult.status === 'pass' ? 'var(--color-text-secondary)' : 'var(--color-danger, #ef4444)',
         }}>
           Contract: {contractResult.status.toUpperCase()}
         </span>
         <span style={{
           padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
-          background: ruleResult.status === 'pass' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-          color: ruleResult.status === 'pass' ? '#22c55e' : '#ef4444',
+          border: '1px solid var(--color-border)',
+          color: ruleResult.status === 'pass' ? 'var(--color-text-secondary)' : 'var(--color-danger, #ef4444)',
         }}>
           Rule: {ruleResult.status.toUpperCase()}
         </span>
@@ -529,10 +534,7 @@ function ValidationReport({ contractResult, ruleResult }: {
               <span style={{
                 fontSize: 10, fontWeight: 700, width: 56, textAlign: 'center',
                 borderRadius: 3, padding: '0 4px',
-                background: f.severity === 'blocker' ? 'rgba(239,68,68,0.1)' :
-                  f.severity === 'repairable' ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.1)',
-                color: f.severity === 'blocker' ? '#ef4444' :
-                  f.severity === 'repairable' ? '#d97706' : '#64748b',
+                color: f.severity === 'blocker' ? 'var(--color-danger, #ef4444)' : 'var(--color-text-secondary)',
               }}>
                 {f.severity}
               </span>
@@ -544,7 +546,7 @@ function ValidationReport({ contractResult, ruleResult }: {
       )}
 
       {passed && (
-        <div style={{ fontSize: 13, color: 'var(--color-success, #22c55e)' }}>
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
           모든 검증을 통과했습니다.
         </div>
       )}

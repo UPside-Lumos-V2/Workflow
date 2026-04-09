@@ -24,7 +24,7 @@
 사용자 텍스트 입력
   → Call 1 (Phase 1-4): Gemini로 추출+정규화 (system_instruction: SKILL원칙+contract+rules)
   → Call 2 (Phase 5): Gemini로 검증 (system_instruction: validator 규칙)
-  → [조건부] Call 3 (Phase 6): Gemini로 수리+재검증
+  → [조건부] Call 3 (Phase 6): Gemini로 수리+재검증ㅗ
   → 미리보기 카드 → Cases 등록 (Supabase)
 ```
 
