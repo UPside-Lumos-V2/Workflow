@@ -25,17 +25,22 @@ const PHASE_LABELS: Record<string, string> = {
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
 
-const INPUT_PLACEHOLDER = [  'Incident data를 입력하세요. 필수 항목:',
+const DEFAULT_TEMPLATE = [
+  '# 필수 항목',
+  '프로토콜명: ',
+  '사고날짜: ',
+  '체인: ',
+  '피해금액: ',
+  '공격유형: ',
   '',
-  '- 프로토콜 이름 (name) — 예: Euler Finance',
-  '- 사고 날짜 (hackedAt) — 예: 2023-03-13',
-  '- 관련 체인 (chains) — 예: Ethereum',
-  '- 피해 금액 (amount) — 예: $197M',
-  '- 공격 유형 (category) — 예: Flash Loan Attack',
-  '',
-  '선택: 감사이력, 보상여부, 자금흐름, Twitter, Website 등',
-  '',
-  '복수 사건을 한 번에 입력할 수도 있습니다.',
+  '# 선택 항목 (알면 작성, 모르면 비워두세요)',
+  '보상상태: ',
+  '사전감사: ',
+  '사후감사: ',
+  '포스트모템: ',
+  '트위터: ',
+  '웹사이트: ',
+  '요약: ',
 ].join('\n');
 
 // ─────────────────────────────────────────────────────
@@ -59,7 +64,8 @@ export function AnalyzerPage() {
   const [activeTab, setActiveTab] = useState<'text' | 'json'>('text');
 
   // Path A state
-  const [rawText, setRawText] = useState('');
+  const [rawText, setRawText] = useState(DEFAULT_TEMPLATE);
+  const [freeText, setFreeText] = useState('');
   const [year, setYear] = useState(CURRENT_YEAR);
 
   // Path B state
@@ -88,8 +94,13 @@ export function AnalyzerPage() {
     setFinalRows([]);
     setParseErrors([]);
 
+    // 구조화 데이터 + 자유 서술을 결합
+    const combinedInput = freeText.trim()
+      ? `${rawText}\n\n# 추가 설명\n${freeText}`
+      : rawText;
+
     try {
-      const result = await runOrchestrator(rawText, year, updateState);
+      const result = await runOrchestrator(combinedInput, year, updateState);
       setFinalRows(result.finalRows);
       setSelectedSlugs(new Set(result.finalRows.map((r) => r.slug)));
       updateState({
@@ -103,7 +114,7 @@ export function AnalyzerPage() {
         error: err instanceof Error ? err.message : 'Unknown error',
       });
     }
-  }, [rawText, year, updateState]);
+  }, [rawText, freeText, year, updateState]);
 
   // ── Path B: JSON 임포트 ──
   const handleJsonImport = useCallback(() => {
@@ -181,7 +192,7 @@ export function AnalyzerPage() {
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>사건 분석기</h1>
       <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, fontSize: 14 }}>
-        pre-lumos 스킬 파이프라인으로 보안 사건 데이터를 분석하고 Cases에 등록합니다.
+        pre-lumos-skills로 데이터를 분석하여 Cases에 등록
       </p>
 
       {/* ── 탭 헤더 ── */}
@@ -194,7 +205,6 @@ export function AnalyzerPage() {
         </TabButton>
       </div>
 
-      {/* ── Tab A: 텍스트 분석 ── */}
       {activeTab === 'text' && (
         <div>
           <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center' }}>
@@ -211,16 +221,34 @@ export function AnalyzerPage() {
               {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
+
+          <label style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4, display: 'block' }}>
+            사건 데이터 (필드명: 값 형식으로 작성)
+          </label>
           <textarea
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
-            placeholder={INPUT_PLACEHOLDER}
             style={{
-              width: '100%', minHeight: 280, padding: 16, borderRadius: 8, fontSize: 13,
+              width: '100%', minHeight: 400, padding: 16, borderRadius: 8, fontSize: 13,
               border: '1px solid var(--color-border)', background: 'var(--color-surface)',
-              fontFamily: 'monospace', resize: 'vertical', lineHeight: 1.6,
+              fontFamily: 'monospace', resize: 'vertical', lineHeight: 1.8,
             }}
           />
+
+          <label style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 12, marginBottom: 4, display: 'block' }}>
+            추가 설명 (선택 — 공격 방식, 배경, 자유 서술 등)
+          </label>
+          <textarea
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            placeholder="사건 배경이나 공격 방식 등 추가 참고 자료를 자유롭게 작성하세요..."
+            style={{
+              width: '100%', minHeight: 100, padding: 16, borderRadius: 8, fontSize: 13,
+              border: '1px solid var(--color-border)', background: 'var(--color-surface)',
+              resize: 'vertical', lineHeight: 1.6,
+            }}
+          />
+
           <button
             className="btn btn-primary"
             onClick={handleAnalyze}
