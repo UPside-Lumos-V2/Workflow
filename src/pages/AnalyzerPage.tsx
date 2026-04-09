@@ -25,17 +25,18 @@ const PHASE_LABELS: Record<string, string> = {
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - i);
 
-const INPUT_PLACEHOLDER = `사건 정보를 입력하세요. 아래 필수 항목이 포함되어야 합니다:
-
-★ 프로토콜 이름 (name) — 예: "Euler Finance"
-★ 사고 날짜 (hackedAt) — 예: "2023-03-13"
-★ 관련 체인 (chains) — 예: "Ethereum"
-★ 피해 금액 (amount) — 예: "$197M"
-★ 공격 유형 (category) — 예: "Flash Loan Attack"
-
-선택: 감사이력, 보상여부, 자금흐름, Twitter, Website 등
-
-복수 사건을 한 번에 입력할 수도 있습니다.`;
+const INPUT_PLACEHOLDER = [  'Incident data를 입력하세요. 필수 항목:',
+  '',
+  '- 프로토콜 이름 (name) — 예: Euler Finance',
+  '- 사고 날짜 (hackedAt) — 예: 2023-03-13',
+  '- 관련 체인 (chains) — 예: Ethereum',
+  '- 피해 금액 (amount) — 예: $197M',
+  '- 공격 유형 (category) — 예: Flash Loan Attack',
+  '',
+  '선택: 감사이력, 보상여부, 자금흐름, Twitter, Website 등',
+  '',
+  '복수 사건을 한 번에 입력할 수도 있습니다.',
+].join('\n');
 
 // ─────────────────────────────────────────────────────
 // Utility: 금액 포맷
@@ -180,7 +181,7 @@ export function AnalyzerPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>사건 분석기</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>사건 분석기</h1>
       <p style={{ color: 'var(--color-text-secondary)', marginBottom: 24, fontSize: 14 }}>
         pre-lumos 스킬 파이프라인으로 보안 사건 데이터를 분석하고 Cases에 등록합니다.
       </p>
@@ -188,10 +189,10 @@ export function AnalyzerPage() {
       {/* ── 탭 헤더 ── */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '1px solid var(--color-border)' }}>
         <TabButton active={activeTab === 'text'} onClick={() => setActiveTab('text')}>
-          📝 텍스트 분석
+          텍스트 분석
         </TabButton>
         <TabButton active={activeTab === 'json'} onClick={() => setActiveTab('json')}>
-          📁 JSON 임포트
+          JSON 임포트
         </TabButton>
       </div>
 
@@ -228,7 +229,7 @@ export function AnalyzerPage() {
             disabled={!rawText.trim() || isProcessing}
             style={{ marginTop: 12, padding: '10px 24px' }}
           >
-            {isProcessing ? '분석 중...' : '🔍 분석 실행'}
+            {isProcessing ? '분석 중...' : '분석 실행'}
           </button>
         </div>
       )}
@@ -237,7 +238,7 @@ export function AnalyzerPage() {
       {activeTab === 'json' && (
         <div>
           <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
-            로컬 에이전트로 <code>skills-pre-lumos</code> 실행 후 생성된 <code>seed/import_&#123;YEAR&#125;.json</code>을
+            로컬 에이전트로 <code>skills-pre-lumos</code> 실행 후 생성된 <code>{'seed/import_{YEAR}.json'}</code>을
             업로드하거나 붙여넣으세요. (검증 생략 — 에이전트가 이미 완료)
           </p>
           <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
@@ -246,7 +247,7 @@ export function AnalyzerPage() {
               onClick={() => fileInputRef.current?.click()}
               style={{ fontSize: 13 }}
             >
-              📂 파일 업로드
+              파일 업로드
             </button>
             <input
               ref={fileInputRef}
@@ -272,7 +273,7 @@ export function AnalyzerPage() {
             disabled={!jsonInput.trim() || isProcessing}
             style={{ marginTop: 12, padding: '10px 24px' }}
           >
-            📥 임포트
+            임포트
           </button>
         </div>
       )}
@@ -302,7 +303,7 @@ export function AnalyzerPage() {
               background: 'rgba(239,68,68,0.1)', color: 'var(--color-danger, #ef4444)',
               marginBottom: 12,
             }}>
-              ❌ {state.error}
+              {state.error}
             </div>
           )}
 
@@ -313,7 +314,7 @@ export function AnalyzerPage() {
               background: 'rgba(245,158,11,0.1)', color: 'var(--color-warning, #d97706)',
               marginBottom: 12, maxHeight: 120, overflow: 'auto',
             }}>
-              ⚠️ 구조 확인 결과:
+              구조 확인 결과:
               {parseErrors.map((e, i) => <div key={i} style={{ marginTop: 4 }}>• {e}</div>)}
             </div>
           )}
@@ -365,7 +366,7 @@ export function AnalyzerPage() {
               disabled={selectedSlugs.size === 0 || isProcessing}
               style={{ marginTop: 16, padding: '12px 32px', fontSize: 15, fontWeight: 600 }}
             >
-              📋 선택한 {selectedSlugs.size}건 Cases에 등록
+              선택한 {selectedSlugs.size}건 Cases에 등록
             </button>
           )}
         </div>
@@ -378,7 +379,7 @@ export function AnalyzerPage() {
           background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)',
         }}>
           <div style={{ fontWeight: 600, color: 'var(--color-success, #22c55e)', marginBottom: 8 }}>
-            ✅ 등록 완료
+            등록 완료
           </div>
           {state.registeredSlugs.length > 0 && (
             <div style={{ fontSize: 13, marginBottom: 4 }}>
@@ -544,7 +545,7 @@ function ValidationReport({ contractResult, ruleResult }: {
 
       {passed && (
         <div style={{ fontSize: 13, color: 'var(--color-success, #22c55e)' }}>
-          ✅ 모든 검증을 통과했습니다.
+          모든 검증을 통과했습니다.
         </div>
       )}
     </div>
