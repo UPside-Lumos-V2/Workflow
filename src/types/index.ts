@@ -40,38 +40,54 @@ export interface ScoreTimelineEntry {
   status: 'completed' | 'pending' | 'none';
 }
 
-export interface FundAddress {
-  address: string;
-  txHash?: string;
-  link?: string;
+// ── pre-lumos aligned sub-types ──
+
+export interface PreLumosAudit {
+  firm: string | null;
+  scope: 'In Scope' | 'Out of Scope' | null;
+  timestamp: string | null;   // primary date (YYYY-MM-DD)
+  reportUrl: string | null;
 }
 
-export interface AuditEntry {
-  auditor: string;
-  scope: string; // 'In Scope', 'Out of Scope'
-  date: string;
+export interface PreLumosFundLink {
+  value: string | null;       // label / address
+  url: string;                // block explorer or external link
+  type: string | null;        // e.g. 'mixer', 'bridge', 'cex'
+}
+
+export interface PreLumosFund {
+  destinations: string[];                               // e.g. ['Tornado Cash', 'Binance']
+  destinations2: Array<{ name: string | null; percent: number | null }>;
+  links: PreLumosFundLink[];
+  lastUpdatedAt: string | null;
 }
 
 export interface CaseIncidentData {
-  hackedAmount: number;         // USD 기준 피해금액
-  hackedDate: string;           // ISO date
-  chain: string;                // Ethereum, Arbitrum, BSC...
-  protocol: string;             // 프로토콜 이름
-  attackVector: string[];       // ['Contract Vulnerability', 'Logic Bug']
-  incidentCode: string;         // 'SHA1020'
-  lumosScore: number | null;    // 0~100
-  auditStatus: boolean | null;  // 사전 감사 여부
+  // ── pre-lumos core fields ──
+  slug: string;                           // identity key (was: incidentCode)
+  hackedAt: string;                       // YYYY-MM-DD (was: hackedDate)
+  chains: string[];                       // e.g. ['Ethereum'] (was: chain string)
+  amount: number;                         // USD (was: hackedAmount)
+  category: string;                       // e.g. 'Contract Vulnerability'
+  subcategory: string | null;             // e.g. 'Lending'
+  summary: string | null;
+  compensationStatus: 'yes' | 'no' | 'rugged' | null;
+  preIncidentAuditStatus: 'yes' | 'no' | 'rugged' | null;  // was: auditStatus boolean
+  postIncidentAuditStatus: 'yes' | 'no' | 'rugged' | null;
+  postmortemStatus: 'yes' | 'no' | 'rugged' | null;
+  compensation: { detail: string | null };
+  preAudits: PreLumosAudit[];             // was: auditHistory.preHack
+  postAudits: PreLumosAudit[];            // was: auditHistory.postHack
+  postmortem: Array<{ url: string; timestamp: string }>;
+  fund: PreLumosFund | null;              // was: fundDestination
+  twitter: string | null;
+  website: string | null;
+  logoImage: string | null;
+  category2: string | null;
+
+  // ── LUMOS-only fields (not in pre-lumos) ──
+  lumosScore: number | null;
   scoreTimeline: ScoreTimelineEntry[];
-  fundDestination: {
-    methods: string[];
-    status: string;
-    addresses: FundAddress[];
-  } | null;
-  auditHistory: {
-    preHack: AuditEntry[];
-    postHack: AuditEntry[];
-  } | null;
-  summary: string;
 }
 
 export interface Case extends BaseEntity {

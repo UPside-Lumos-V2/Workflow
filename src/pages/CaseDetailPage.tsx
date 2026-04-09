@@ -6,7 +6,10 @@ import { Modal } from '../components/shared';
 import { CaseTasksTab } from '../components/CaseTasksTab';
 import { CaseArtifactsTab } from '../components/CaseArtifactsTab';
 import { CaseDiscussionTab } from '../components/CaseDiscussionTab';
-import type { CaseStatus, CasePriority, CaseIncidentData, ScoreTimelineEntry } from '../types';
+import type {
+  CaseStatus, CasePriority, CaseIncidentData, ScoreTimelineEntry,
+  PreLumosAudit,
+} from '../types';
 
 type TabId = 'tasks' | 'artifacts' | 'discussion';
 
@@ -23,6 +26,13 @@ function formatUsd(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n.toLocaleString()}`;
+}
+
+function statusBadge(val: 'yes' | 'no' | 'rugged' | null) {
+  if (val === 'yes') return <span style={{ color: '#10B981', fontWeight: 600 }}>Yes</span>;
+  if (val === 'no') return <span style={{ color: '#EF4444', fontWeight: 600 }}>No</span>;
+  if (val === 'rugged') return <span style={{ color: '#F59E0B', fontWeight: 600 }}>Rugged</span>;
+  return <span style={{ color: '#9CA3AF' }}>—</span>;
 }
 
 export function CaseDetailPage() {
@@ -46,16 +56,29 @@ export function CaseDetailPage() {
     );
   }
 
-  // incidentData가 없어도 기본값으로 항상 카드 표시
+  // incidentData 기본값 (pre-lumos 구조)
   const inc = caseData.incidentData ?? {
-    hackedAmount: parseInt(caseData.metadata?.lossUsd || caseData.metadata?.loss_usd || '0') || 0,
-    hackedDate: caseData.createdAt,
-    chain: caseData.metadata?.chain || '',
-    protocol: caseData.metadata?.protocol || '',
-    attackVector: [],
-    incidentCode: '',
+    slug: '',
+    hackedAt: caseData.createdAt,
+    chains: [caseData.metadata?.chain ?? ''].filter(Boolean),
+    amount: parseInt(caseData.metadata?.lossUsd || caseData.metadata?.loss_usd || '0') || 0,
+    category: 'Unknown',
+    subcategory: null,
+    summary: null,
+    compensationStatus: null,
+    preIncidentAuditStatus: null,
+    postIncidentAuditStatus: null,
+    postmortemStatus: null,
+    compensation: { detail: null },
+    preAudits: [],
+    postAudits: [],
+    postmortem: [],
+    fund: null,
+    twitter: null,
+    website: null,
+    logoImage: null,
+    category2: null,
     lumosScore: null,
-    auditStatus: null,
     scoreTimeline: [
       { label: 'Pre-Incident Audit', date: null, status: 'none' as const },
       { label: 'Hacked', date: caseData.createdAt, status: 'completed' as const },
@@ -63,9 +86,6 @@ export function CaseDetailPage() {
       { label: 'Community Compensation', date: null, status: 'none' as const },
       { label: 'Post-Incident Audit', date: null, status: 'none' as const },
     ],
-    fundDestination: null,
-    auditHistory: null,
-    summary: '',
   };
 
   return (
@@ -105,167 +125,186 @@ export function CaseDetailPage() {
         </div>
       </div>
 
-      {/* ── LUMOS 사고 개요 카드 ── */}
+      {/* ── 사고 개요 카드 ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 24 }}>
-          {/* 사고 개요 */}
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div>
-                <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>Hacked Amount</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#333' }}>{formatUsd(inc.hackedAmount)}</div>
-              </div>
-              {inc.lumosScore != null && (
-                <div style={{
-                  padding: '6px 14px', borderRadius: 16, fontWeight: 700, fontSize: 16,
-                  background: inc.lumosScore >= 70 ? '#E8F5E9' : inc.lumosScore >= 40 ? '#FFF8E1' : '#FFEBEE',
-                  color: inc.lumosScore >= 70 ? '#2E7D32' : inc.lumosScore >= 40 ? '#F57F17' : '#C62828',
-                }}>
-                  {inc.lumosScore}/100
-                </div>
-              )}
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div>
+              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>Hacked Amount</div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#333' }}>{formatUsd(inc.amount)}</div>
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, fontSize: 'var(--font-size-sm)' }}>
-              <InfoRow label="Hacked Date" value={new Date(inc.hackedDate).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })} />
-              <InfoRow label="Chain" value={inc.chain} />
-              <InfoRow label="Audit Status" value={inc.auditStatus === true ? 'Yes' : inc.auditStatus === false ? 'No' : '—'} />
-              <InfoRow label="Incident Code" value={inc.incidentCode || '—'} />
-            </div>
-
-            {/* Attack Vector */}
-            {inc.attackVector.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>Attack Vector</span>
-                <div style={{ display: 'flex', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                  {inc.attackVector.map((v, i) => (
-                    <span key={i} style={{
-                      fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 12,
-                      background: '#F3E8FF', color: '#7C3AED',
-                    }}>
-                      {v}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Summary */}
-            {inc.summary && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border-light)' }}>
-                <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 'var(--font-size-sm)' }}>Summary</div>
-                <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)', lineHeight: 1.7 }}>
-                  {inc.summary}
-                </p>
+            {inc.lumosScore != null && (
+              <div style={{
+                padding: '6px 14px', borderRadius: 16, fontWeight: 700, fontSize: 16,
+                background: inc.lumosScore >= 70 ? '#E8F5E9' : inc.lumosScore >= 40 ? '#FFF8E1' : '#FFEBEE',
+                color: inc.lumosScore >= 70 ? '#2E7D32' : inc.lumosScore >= 40 ? '#F57F17' : '#C62828',
+              }}>
+                {inc.lumosScore}/100
               </div>
             )}
           </div>
 
-          {/* LUMOS Score Timeline */}
-          {inc.scoreTimeline.length > 0 && (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
-                LUMOS Score Criteria
-                <span className="text-tertiary" style={{ fontWeight: 400, fontSize: 'var(--font-size-xs)', marginLeft: 8 }}>
-                  (●클릭=상태변경 · 날짜클릭=수정)
-                </span>
-              </div>
-              <div style={{ position: 'relative', paddingLeft: 20 }}>
-                {/* 수직 라인 */}
-                <div style={{
-                  position: 'absolute', left: 7, top: 8, bottom: 8, width: 2,
-                  background: 'linear-gradient(to bottom, #9F34B4, #D8A8E8)',
-                }} />
-                {inc.scoreTimeline.map((entry, i) => {
-                  const nextStatus = entry.status === 'none' ? 'pending' as const
-                    : entry.status === 'pending' ? 'completed' as const
-                    : 'none' as const;
-                  const statusLabel = { none: 'No Update', pending: 'In Progress', completed: 'Completed' };
-                  return (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, position: 'relative' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, fontSize: 'var(--font-size-sm)' }}>
+            <InfoRow label="Hacked Date" value={new Date(inc.hackedAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })} />
+            <InfoRow label="Chain" value={inc.chains.join(', ') || '—'} />
+            <InfoRow label="Category" value={[inc.category, inc.subcategory].filter(Boolean).join(' / ')} />
+            <InfoRow label="Slug" value={inc.slug || '—'} />
+          </div>
+
+          {/* Status badges */}
+          <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap', fontSize: 'var(--font-size-xs)' }}>
+            <div><span className="text-tertiary">Pre-Audit: </span>{statusBadge(inc.preIncidentAuditStatus)}</div>
+            <div><span className="text-tertiary">Post-Audit: </span>{statusBadge(inc.postIncidentAuditStatus)}</div>
+            <div><span className="text-tertiary">Postmortem: </span>{statusBadge(inc.postmortemStatus)}</div>
+            <div><span className="text-tertiary">Compensation: </span>{statusBadge(inc.compensationStatus)}</div>
+          </div>
+
+          {/* Links */}
+          {(inc.website || inc.twitter) && (
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, fontSize: 'var(--font-size-xs)' }}>
+              {inc.website && <a href={inc.website} target="_blank" rel="noopener noreferrer" style={{ color: '#9F34B4' }}>🌐 Website</a>}
+              {inc.twitter && <a href={`https://twitter.com/${inc.twitter}`} target="_blank" rel="noopener noreferrer" style={{ color: '#9F34B4' }}>𝕏 @{inc.twitter}</a>}
+            </div>
+          )}
+
+          {/* Summary */}
+          {inc.summary && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--color-border-light)' }}>
+              <div style={{ fontWeight: 700, marginBottom: 6, fontSize: 'var(--font-size-sm)' }}>Summary</div>
+              <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)', lineHeight: 1.7 }}>
+                {inc.summary}
+              </p>
+            </div>
+          )}
+
+          {/* Compensation detail */}
+          {inc.compensation.detail && (
+            <div style={{ marginTop: 12, fontSize: 'var(--font-size-sm)', color: '#10B981' }}>
+              <span style={{ fontWeight: 600 }}>보상 내용: </span>{inc.compensation.detail}
+            </div>
+          )}
+        </div>
+
+        {/* LUMOS Score Timeline */}
+        {inc.scoreTimeline.length > 0 && (
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
+              LUMOS Score Criteria
+              <span className="text-tertiary" style={{ fontWeight: 400, fontSize: 'var(--font-size-xs)', marginLeft: 8 }}>
+                (●클릭=상태변경 · 날짜클릭=수정)
+              </span>
+            </div>
+            <div style={{ position: 'relative', paddingLeft: 20 }}>
+              <div style={{
+                position: 'absolute', left: 7, top: 8, bottom: 8, width: 2,
+                background: 'linear-gradient(to bottom, #9F34B4, #D8A8E8)',
+              }} />
+              {inc.scoreTimeline.map((entry, i) => {
+                const nextStatus = entry.status === 'none' ? 'pending' as const
+                  : entry.status === 'pending' ? 'completed' as const
+                  : 'none' as const;
+                const statusLabel = { none: 'No Update', pending: 'In Progress', completed: 'Completed' };
+                return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16, position: 'relative' }}>
+                  <div
+                    title={`클릭: ${statusLabel[entry.status]} → ${statusLabel[nextStatus]}`}
+                    style={{
+                      width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginLeft: -20,
+                      background: entry.status === 'completed' ? '#9F34B4' : entry.status === 'pending' ? '#D8A8E8' : '#ddd',
+                      border: '3px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
+                      cursor: 'pointer', transition: 'transform 0.15s',
+                    }}
+                    onClick={() => {
+                      const updated = [...inc.scoreTimeline];
+                      updated[i] = { ...entry, status: nextStatus };
+                      if (nextStatus === 'completed' && !entry.date) {
+                        updated[i].date = new Date().toISOString().slice(0, 10);
+                      }
+                      edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
+                    }}
+                    onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'scale(1.3)'; }}
+                    onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'scale(1)'; }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.label}</div>
                     <div
-                      title={`클릭: ${statusLabel[entry.status]} → ${statusLabel[nextStatus]}`}
-                      style={{
-                        width: 16, height: 16, borderRadius: '50%', flexShrink: 0, marginLeft: -20,
-                        background: entry.status === 'completed' ? '#9F34B4' : entry.status === 'pending' ? '#D8A8E8' : '#ddd',
-                        border: '3px solid #fff', boxShadow: '0 0 0 1px rgba(0,0,0,0.1)',
-                        cursor: 'pointer', transition: 'transform 0.15s',
-                      }}
+                      className="text-tertiary"
+                      style={{ fontSize: 'var(--font-size-xs)', cursor: 'pointer', textDecoration: 'underline dotted', textDecorationColor: 'rgba(0,0,0,0.2)' }}
                       onClick={() => {
-                        const updated = [...inc.scoreTimeline];
-                        updated[i] = { ...entry, status: nextStatus };
-                        // completed로 변경 시 날짜가 없으면 오늘 날짜 자동 세팅
-                        if (nextStatus === 'completed' && !entry.date) {
-                          updated[i].date = new Date().toISOString().slice(0, 10);
-                        }
-                        edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
-                      }}
-                      onMouseEnter={(e) => { (e.target as HTMLElement).style.transform = 'scale(1.3)'; }}
-                      onMouseLeave={(e) => { (e.target as HTMLElement).style.transform = 'scale(1)'; }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{entry.label}</div>
-                      <div
-                        className="text-tertiary"
-                        style={{ fontSize: 'var(--font-size-xs)', cursor: 'pointer', textDecoration: 'underline dotted', textDecorationColor: 'rgba(0,0,0,0.2)' }}
-                        onClick={() => {
-                          const newDate = prompt('날짜 입력 (YYYY-MM-DD)', entry.date || new Date().toISOString().slice(0, 10));
-                          if (newDate !== null) {
-                            const updated = [...inc.scoreTimeline];
-                            updated[i] = { ...entry, date: newDate || null };
-                            if (newDate && entry.status === 'none') {
-                              updated[i].status = 'completed';
-                            }
-                            edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
+                        const newDate = prompt('날짜 입력 (YYYY-MM-DD)', entry.date || new Date().toISOString().slice(0, 10));
+                        if (newDate !== null) {
+                          const updated = [...inc.scoreTimeline];
+                          updated[i] = { ...entry, date: newDate || null };
+                          if (newDate && entry.status === 'none') {
+                            updated[i].status = 'completed';
                           }
-                        }}
-                      >
-                        {entry.date ? new Date(entry.date).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Update'}
-                      </div>
+                          edit(caseData.id, { incidentData: { ...inc, scoreTimeline: updated } });
+                        }
+                      }}
+                    >
+                      {entry.date ? new Date(entry.date).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No Update'}
                     </div>
                   </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Exploited Fund Destination */}
-          {inc.fundDestination && (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
-                Exploited Fund Destination
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', flexShrink: 0 }} />
-                <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{inc.fundDestination.methods.join(', ')}</span>
-                <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>— {inc.fundDestination.status}</span>
-              </div>
-              {inc.fundDestination.addresses.length > 0 && (
-                <div style={{ border: '1px solid var(--color-border-light)', borderRadius: 8, overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '8px 12px', background: 'var(--color-bg-secondary)', fontSize: 11, fontWeight: 600, color: '#888' }}>
-                    <span>Address & Transaction</span><span>Link</span>
-                  </div>
-                  {inc.fundDestination.addresses.map((a, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 12px', borderTop: '1px solid var(--color-border-light)', alignItems: 'center' }}>
-                      <code style={{ fontSize: 12, wordBreak: 'break-all' }}>{a.address}</code>
-                      {a.link && <a href={a.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 16 }}>↗</a>}
-                    </div>
-                  ))}
                 </div>
-              )}
+                );
+              })}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Audit History */}
-          {inc.auditHistory && (
-            <div className="card" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
-                Audit History
+        {/* Postmortem Links */}
+        {inc.postmortem.length > 0 && (
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>Postmortem</div>
+            {inc.postmortem.map((pm, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', fontSize: 'var(--font-size-sm)' }}>
+                <a href={pm.url} target="_blank" rel="noopener noreferrer" style={{ color: '#9F34B4', wordBreak: 'break-all' }}>{pm.url}</a>
+                <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', flexShrink: 0, marginLeft: 12 }}>{pm.timestamp}</span>
               </div>
-              <AuditSection title="Pre-Hack" entries={inc.auditHistory.preHack} />
-              <AuditSection title="Post-Hack" entries={inc.auditHistory.postHack} />
+            ))}
+          </div>
+        )}
+
+        {/* Exploited Fund */}
+        {inc.fund && (
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>
+              Exploited Fund Destination
             </div>
-          )}
+            {inc.fund.destinations.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {inc.fund.destinations.map((d, i) => (
+                  <span key={i} style={{
+                    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 12,
+                    background: '#FEE2E2', color: '#DC2626',
+                  }}>{d}</span>
+                ))}
+              </div>
+            )}
+            {inc.fund.links.length > 0 && (
+              <div style={{ border: '1px solid var(--color-border-light)', borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '8px 12px', background: 'var(--color-bg-secondary)', fontSize: 11, fontWeight: 600, color: '#888' }}>
+                  <span>Address / Value</span><span>Link</span>
+                </div>
+                {inc.fund.links.map((link, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr auto', padding: '10px 12px', borderTop: '1px solid var(--color-border-light)', alignItems: 'center' }}>
+                    <code style={{ fontSize: 12, wordBreak: 'break-all' }}>{link.value || link.url}</code>
+                    {link.url && <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 16 }}>↗</a>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Audit History */}
+        {(inc.preAudits.length > 0 || inc.postAudits.length > 0) && (
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ fontWeight: 700, marginBottom: 14, fontSize: 'var(--font-size-sm)' }}>Audit History</div>
+            <AuditSection title="Pre-Hack" entries={inc.preAudits} />
+            <AuditSection title="Post-Hack" entries={inc.postAudits} />
+          </div>
+        )}
       </div>
 
       {/* 탭 */}
@@ -304,7 +343,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function AuditSection({ title, entries }: { title: string; entries: Array<{ auditor: string; scope: string; date: string }> }) {
+function AuditSection({ title, entries }: { title: string; entries: PreLumosAudit[] }) {
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{
@@ -322,11 +361,12 @@ function AuditSection({ title, entries }: { title: string; entries: Array<{ audi
           entries.map((e, i) => (
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
               <div>
-                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{e.auditor}</div>
-                <div style={{ fontSize: 'var(--font-size-xs)', color: e.scope === 'In Scope' ? '#10B981' : '#F59E0B' }}>{e.scope}</div>
+                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{e.firm ?? '—'}</div>
+                <div style={{ fontSize: 'var(--font-size-xs)', color: e.scope === 'In Scope' ? '#10B981' : '#F59E0B' }}>{e.scope ?? '—'}</div>
               </div>
-              <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
-                {new Date(e.date).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>{e.timestamp ?? '—'}</span>
+                {e.reportUrl && <a href={e.reportUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, color: '#9F34B4' }}>Report ↗</a>}
               </div>
             </div>
           ))
@@ -336,7 +376,7 @@ function AuditSection({ title, entries }: { title: string; entries: Array<{ audi
   );
 }
 
-// ── 수정 모달 (확장됨) ──
+// ── 수정 모달 ──
 function EditCaseModal({
   isOpen, onClose, caseData, onSave,
 }: {
@@ -351,43 +391,56 @@ function EditCaseModal({
   const [priority, setPriority] = useState(caseData.priority);
   const [description, setDescription] = useState(caseData.description);
 
-  // incident data fields
-  const [hackedAmount, setHackedAmount] = useState(String(inc?.hackedAmount ?? ''));
-  const [hackedDate, setHackedDate] = useState(inc?.hackedDate ?? '');
-  const [chain, setChain] = useState(inc?.chain ?? caseData.metadata?.chain ?? '');
-  const [protocol, setProtocol] = useState(inc?.protocol ?? caseData.metadata?.protocol ?? '');
-  const [attackVectorStr, setAttackVectorStr] = useState((inc?.attackVector ?? []).join(', '));
-  const [incidentCode, setIncidentCode] = useState(inc?.incidentCode ?? '');
-  const [lumosScore, setLumosScore] = useState(String(inc?.lumosScore ?? ''));
-  const [auditStatus, setAuditStatus] = useState<string>(inc?.auditStatus === true ? 'yes' : inc?.auditStatus === false ? 'no' : 'unknown');
+  // pre-lumos fields
+  const [slug, setSlug] = useState(inc?.slug ?? '');
+  const [amount, setAmount] = useState(String(inc?.amount ?? ''));
+  const [hackedAt, setHackedAt] = useState(inc?.hackedAt ?? '');
+  const [chainsStr, setChainsStr] = useState((inc?.chains ?? []).join(', '));
+  const [category, setCategory] = useState(inc?.category ?? '');
+  const [subcategory, setSubcategory] = useState(inc?.subcategory ?? '');
   const [summary, setSummary] = useState(inc?.summary ?? '');
+  const [preAuditStatus, setPreAuditStatus] = useState<string>(inc?.preIncidentAuditStatus ?? 'null');
+  const [postAuditStatus, setPostAuditStatus] = useState<string>(inc?.postIncidentAuditStatus ?? 'null');
+  const [compensationStatus, setCompensationStatus] = useState<string>(inc?.compensationStatus ?? 'null');
+  const [postmortemStatus, setPostmortemStatus] = useState<string>(inc?.postmortemStatus ?? 'null');
+  const [lumosScore, setLumosScore] = useState(String(inc?.lumosScore ?? ''));
+  const [twitter, setTwitter] = useState(inc?.twitter ?? '');
+  const [website, setWebsite] = useState(inc?.website ?? '');
 
   const [saving, setSaving] = useState(false);
+
+  const toStatus = (v: string) => (v === 'null' ? null : v) as 'yes' | 'no' | 'rugged' | null;
 
   const handleSave = async () => {
     if (!title.trim()) return;
     setSaving(true);
 
-    const metadata: Record<string, string> = { ...caseData.metadata };
-    if (protocol.trim()) metadata.protocol = protocol.trim();
-    if (chain.trim()) metadata.chain = chain.trim();
-
     const incidentData: CaseIncidentData = {
-      hackedAmount: parseInt(hackedAmount) || 0,
-      hackedDate: hackedDate || new Date().toISOString().slice(0, 10),
-      chain: chain.trim(),
-      protocol: protocol.trim(),
-      attackVector: attackVectorStr.split(',').map((s) => s.trim()).filter(Boolean),
-      incidentCode: incidentCode.trim(),
+      slug: slug.trim(),
+      hackedAt: hackedAt || new Date().toISOString().slice(0, 10),
+      chains: chainsStr.split(',').map((s) => s.trim()).filter(Boolean),
+      amount: parseInt(amount) || 0,
+      category: category.trim() || 'Unknown',
+      subcategory: subcategory.trim() || null,
+      summary: summary.trim() || null,
+      preIncidentAuditStatus: toStatus(preAuditStatus),
+      postIncidentAuditStatus: toStatus(postAuditStatus),
+      compensationStatus: toStatus(compensationStatus),
+      postmortemStatus: toStatus(postmortemStatus),
+      compensation: inc?.compensation ?? { detail: null },
+      preAudits: inc?.preAudits ?? [],
+      postAudits: inc?.postAudits ?? [],
+      postmortem: inc?.postmortem ?? [],
+      fund: inc?.fund ?? null,
+      twitter: twitter.replace('@', '').trim() || null,
+      website: website.trim() || null,
+      logoImage: inc?.logoImage ?? null,
+      category2: inc?.category2 ?? null,
       lumosScore: lumosScore ? parseInt(lumosScore) : null,
-      auditStatus: auditStatus === 'yes' ? true : auditStatus === 'no' ? false : null,
-      scoreTimeline: inc?.scoreTimeline ?? defaultTimeline(hackedDate),
-      fundDestination: inc?.fundDestination ?? null,
-      auditHistory: inc?.auditHistory ?? null,
-      summary: summary.trim(),
+      scoreTimeline: inc?.scoreTimeline ?? defaultTimeline(hackedAt),
     };
 
-    await onSave({ title: title.trim(), priority, description: description.trim(), metadata, incidentData });
+    await onSave({ title: title.trim(), priority, description: description.trim(), incidentData });
     setSaving(false);
   };
 
@@ -406,7 +459,6 @@ function EditCaseModal({
         <FormField label="제목">
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </FormField>
-
         <FormField label="우선순위">
           <select value={priority} onChange={(e) => setPriority(e.target.value as CasePriority)}>
             <option value="high">High</option>
@@ -414,56 +466,88 @@ function EditCaseModal({
             <option value="low">Low</option>
           </select>
         </FormField>
-
         <FormField label="설명">
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
         </FormField>
 
         <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 12, marginTop: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: '#9F34B4' }}>📊 사고 데이터</div>
+          <div style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: '#9F34B4' }}>📊 사고 데이터 (pre-lumos)</div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="Slug (ID)">
+            <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="euler-finance-2023" />
+          </FormField>
           <FormField label="피해금액 (USD)">
-            <input type="number" value={hackedAmount} onChange={(e) => setHackedAmount(e.target.value)} placeholder="1200000" />
-          </FormField>
-          <FormField label="사고 일자">
-            <input type="date" value={hackedDate} onChange={(e) => setHackedDate(e.target.value)} />
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="197000000" />
           </FormField>
         </div>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <FormField label="Protocol">
-            <input type="text" value={protocol} onChange={(e) => setProtocol(e.target.value)} placeholder="CrossCurve" />
+          <FormField label="사고 일자">
+            <input type="date" value={hackedAt} onChange={(e) => setHackedAt(e.target.value)} />
           </FormField>
-          <FormField label="Chain">
-            <input type="text" value={chain} onChange={(e) => setChain(e.target.value)} placeholder="Ethereum" />
+          <FormField label="Chain (쉼표 구분)">
+            <input type="text" value={chainsStr} onChange={(e) => setChainsStr(e.target.value)} placeholder="Ethereum, Arbitrum" />
           </FormField>
         </div>
-
-        <FormField label="Attack Vector (쉼표 구분)">
-          <input type="text" value={attackVectorStr} onChange={(e) => setAttackVectorStr(e.target.value)} placeholder="Contract Vulnerability, Logic Bug" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="Category">
+            <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Contract Vulnerability" />
+          </FormField>
+          <FormField label="Category2 (DeFi type)">
+            <input type="text" value={subcategory} onChange={(e) => setSubcategory(e.target.value)} placeholder="Lending" />
+          </FormField>
+        </div>
+        <FormField label="Summary">
+          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} placeholder="사고 요약..." />
         </FormField>
-
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="Pre-Incident Audit">
+            <select value={preAuditStatus} onChange={(e) => setPreAuditStatus(e.target.value)}>
+              <option value="null">미확인</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="rugged">Rugged</option>
+            </select>
+          </FormField>
+          <FormField label="Post-Incident Audit">
+            <select value={postAuditStatus} onChange={(e) => setPostAuditStatus(e.target.value)}>
+              <option value="null">미확인</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="rugged">Rugged</option>
+            </select>
+          </FormField>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <FormField label="Incident Code">
-            <input type="text" value={incidentCode} onChange={(e) => setIncidentCode(e.target.value)} placeholder="SHA1020" />
+          <FormField label="Compensation">
+            <select value={compensationStatus} onChange={(e) => setCompensationStatus(e.target.value)}>
+              <option value="null">미확인</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="rugged">Rugged</option>
+            </select>
+          </FormField>
+          <FormField label="Postmortem">
+            <select value={postmortemStatus} onChange={(e) => setPostmortemStatus(e.target.value)}>
+              <option value="null">미확인</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+              <option value="rugged">Rugged</option>
+            </select>
           </FormField>
           <FormField label="LUMOS Score (0~100)">
             <input type="number" min={0} max={100} value={lumosScore} onChange={(e) => setLumosScore(e.target.value)} placeholder="75" />
           </FormField>
-          <FormField label="Audit Status">
-            <select value={auditStatus} onChange={(e) => setAuditStatus(e.target.value)}>
-              <option value="unknown">미확인</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <FormField label="Twitter (handle only)">
+            <input type="text" value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="eulerfinance" />
+          </FormField>
+          <FormField label="Website">
+            <input type="text" value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://euler.finance" />
           </FormField>
         </div>
-
-        <FormField label="Summary">
-          <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} placeholder="사고 요약..." />
-        </FormField>
       </div>
     </Modal>
   );
@@ -478,10 +562,10 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function defaultTimeline(hackedDate: string): ScoreTimelineEntry[] {
+function defaultTimeline(hackedAt: string): ScoreTimelineEntry[] {
   return [
     { label: 'Pre-Incident Audit', date: null, status: 'none' },
-    { label: 'Hacked', date: hackedDate || null, status: hackedDate ? 'completed' : 'none' },
+    { label: 'Hacked', date: hackedAt || null, status: hackedAt ? 'completed' : 'none' },
     { label: 'Post-Mortem Release', date: null, status: 'none' },
     { label: 'Community Compensation', date: null, status: 'none' },
     { label: 'Post-Incident Audit', date: null, status: 'none' },

@@ -29,18 +29,18 @@ function monthLabel(date: string): string {
 
 /** 피해금액 추출 (incidentData → metadata fallback) */
 function getHackedAmount(c: Case): number {
-  if (c.incidentData?.hackedAmount != null) return c.incidentData.hackedAmount;
+  if (c.incidentData?.amount != null) return c.incidentData.amount;
   if (c.metadata?.lossUsd) return parseInt(c.metadata.lossUsd) || 0;
   if (c.metadata?.loss_usd) return parseInt(c.metadata.loss_usd) || 0;
   return 0;
 }
 
 function getHackedDate(c: Case): string {
-  return c.incidentData?.hackedDate || c.createdAt;
+  return c.incidentData?.hackedAt || c.createdAt;
 }
 
 function getProtocol(c: Case): string {
-  return c.incidentData?.protocol || c.metadata?.protocol || c.title;
+  return c.title;
 }
 
 export function CasesPage() {
@@ -239,8 +239,7 @@ export function CasesPage() {
                 <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <span>{getTaskCount(c.id)} tasks</span>
                   {amount > 0 && <span>💰 {formatUsd(amount)}</span>}
-                  {(c.incidentData?.chain || c.metadata?.chain) && <span>⛓ {c.incidentData?.chain || c.metadata.chain}</span>}
-                  {(c.incidentData?.protocol || c.metadata?.protocol) && <span>🔗 {c.incidentData?.protocol || c.metadata.protocol}</span>}
+                  {c.incidentData?.chains?.length ? <span>⛓ {c.incidentData.chains.join(', ')}</span> : c.metadata?.chain && <span>⛓ {c.metadata.chain}</span>}
                 </div>
               </div>
             );

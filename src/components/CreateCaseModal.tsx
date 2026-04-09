@@ -14,11 +14,11 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<CasePriority>('medium');
   const [description, setDescription] = useState('');
-  const [protocol, setProtocol] = useState('');
-  const [chain, setChain] = useState('');
-  const [hackedAmount, setHackedAmount] = useState('');
-  const [hackedDate, setHackedDate] = useState('');
-  const [attackVectorStr, setAttackVectorStr] = useState('');
+  const [slug, setSlug] = useState('');
+  const [chainsStr, setChainsStr] = useState('');
+  const [amount, setAmount] = useState('');
+  const [hackedAt, setHackedAt] = useState('');
+  const [category, setCategory] = useState('');
   const [lumosScore, setLumosScore] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,11 +31,11 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
     setTitle('');
     setPriority('medium');
     setDescription('');
-    setProtocol('');
-    setChain('');
-    setHackedAmount('');
-    setHackedDate('');
-    setAttackVectorStr('');
+    setSlug('');
+    setChainsStr('');
+    setAmount('');
+    setHackedAt('');
+    setCategory('');
     setLumosScore('');
     setAiInput('');
     setAiError('');
@@ -48,11 +48,11 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
     try {
       const result = await parseCaseFromText(aiInput);
       if (result.title) setTitle(result.title);
-      if (result.protocol) setProtocol(result.protocol);
-      if (result.chain) setChain(result.chain);
-      if (result.hackedAmount) setHackedAmount(String(result.hackedAmount));
-      if (result.hackedDate) setHackedDate(result.hackedDate);
-      if (result.attackVector.length > 0) setAttackVectorStr(result.attackVector.join(', '));
+      if (result.slug) setSlug(result.slug);
+      if (result.chains?.length) setChainsStr(result.chains.join(', '));
+      if (result.amount) setAmount(String(result.amount));
+      if (result.hackedAt) setHackedAt(result.hackedAt);
+      if (result.category) setCategory(result.category);
       if (result.description) setDescription(result.description);
       if (result.priority) setPriority(result.priority);
       if (result.lumosScore !== null) setLumosScore(String(result.lumosScore));
@@ -67,29 +67,37 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
     if (!title.trim()) return;
     setSubmitting(true);
     try {
-      const metadata: Record<string, string> = {};
-      if (protocol.trim()) metadata.protocol = protocol.trim();
-      if (chain.trim()) metadata.chain = chain.trim();
+      const chains = chainsStr.split(',').map((s) => s.trim()).filter(Boolean);
 
       const incidentData: CaseIncidentData = {
-        hackedAmount: parseInt(hackedAmount) || 0,
-        hackedDate: hackedDate || new Date().toISOString().slice(0, 10),
-        chain: chain.trim(),
-        protocol: protocol.trim(),
-        attackVector: attackVectorStr.split(',').map((s) => s.trim()).filter(Boolean),
-        incidentCode: '',
+        slug: slug.trim(),
+        hackedAt: hackedAt || new Date().toISOString().slice(0, 10),
+        chains,
+        amount: parseInt(amount) || 0,
+        category: category.trim() || 'Unknown',
+        subcategory: null,
+        summary: null,
+        compensationStatus: null,
+        preIncidentAuditStatus: null,
+        postIncidentAuditStatus: null,
+        postmortemStatus: null,
+        compensation: { detail: null },
+        preAudits: [],
+        postAudits: [],
+        postmortem: [],
+        fund: null,
+        twitter: null,
+        website: null,
+        logoImage: null,
+        category2: null,
         lumosScore: lumosScore ? parseInt(lumosScore) : null,
-        auditStatus: null,
         scoreTimeline: [
           { label: 'Pre-Incident Audit', date: null, status: 'none' as const },
-          { label: 'Hacked', date: hackedDate || null, status: hackedDate ? 'completed' as const : 'none' as const },
+          { label: 'Hacked', date: hackedAt || null, status: hackedAt ? 'completed' as const : 'none' as const },
           { label: 'Post-Mortem Release', date: null, status: 'none' as const },
           { label: 'Community Compensation', date: null, status: 'none' as const },
           { label: 'Post-Incident Audit', date: null, status: 'none' as const },
         ],
-        fundDestination: null,
-        auditHistory: null,
-        summary: '',
       };
 
       await onSubmit({
@@ -97,11 +105,10 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
         status: 'active',
         priority,
         description: description.trim(),
-        metadata,
+        metadata: { chain: chains[0] ?? '' },
         incidentData,
       });
-      // 텔레그램 알림
-      sendTelegramNotification(`🚨 *새 케이스:* "${title.trim()}"\nPriority: ${priority} | ${protocol.trim() || 'N/A'} | ${chain.trim() || 'N/A'}`);
+      sendTelegramNotification(`🚨 *새 케이스:* "${title.trim()}"\nPriority: ${priority} | ${slug.trim() || 'N/A'} | ${chains.join(', ') || 'N/A'}`);
       reset();
     } finally {
       setSubmitting(false);
@@ -216,8 +223,8 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
 
         {/* 사고 데이터 섹션 */}
         <div style={{ borderTop: '1px solid var(--color-border-light)', paddingTop: 12, marginTop: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', marginBottom: 8, color: '#9F34B4' }}>
-            📊 사고 데이터
+          <div style={{ fontWeight: 700, fontSize: 'var(--font-size-sm)', marginBottom: 4, color: '#9F34B4' }}>
+            📊 사고 데이터 (pre-lumos)
           </div>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 8 }}>
             선택사항 — 나중에 케이스 수정에서 추가/변경 가능
@@ -226,29 +233,29 @@ export function CreateCaseModal({ isOpen, onClose, onSubmit }: CreateCaseModalPr
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Protocol <span style={{ color: '#EF4444' }}>*</span></label>
-            <input type="text" value={protocol} onChange={(e) => setProtocol(e.target.value)} placeholder="CrossCurve" />
+            <label className="form-label">Slug</label>
+            <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="euler-finance-2023" />
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Chain <span style={{ color: '#EF4444' }}>*</span></label>
-            <input type="text" value={chain} onChange={(e) => setChain(e.target.value)} placeholder="Ethereum" />
+            <label className="form-label">피해금액 (USD)</label>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="197000000" />
           </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">피해금액 (USD)</label>
-            <input type="number" value={hackedAmount} onChange={(e) => setHackedAmount(e.target.value)} placeholder="1200000" />
+            <label className="form-label">사고 일자</label>
+            <input type="date" value={hackedAt} onChange={(e) => setHackedAt(e.target.value)} />
           </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">사고 일자</label>
-            <input type="date" value={hackedDate} onChange={(e) => setHackedDate(e.target.value)} />
+            <label className="form-label">Chain (쉼표 구분)</label>
+            <input type="text" value={chainsStr} onChange={(e) => setChainsStr(e.target.value)} placeholder="Ethereum, Arbitrum" />
           </div>
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
-          <label className="form-label">Attack Vector (쉼표 구분)</label>
-          <input type="text" value={attackVectorStr} onChange={(e) => setAttackVectorStr(e.target.value)} placeholder="Contract Vulnerability, Logic Bug" />
+          <label className="form-label">Category</label>
+          <input type="text" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Contract Vulnerability" />
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>

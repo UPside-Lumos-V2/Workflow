@@ -37,11 +37,12 @@ export async function summarizeMeetingNote(
 /** 자유 텍스트에서 케이스 필드 자동 추출 */
 export interface ParsedCaseData {
   title: string;
-  protocol: string;
-  chain: string;
-  hackedAmount: number;
-  hackedDate: string;
-  attackVector: string[];
+  slug: string;          // was: protocol
+  chains: string[];      // was: chain (string)
+  amount: number;        // was: hackedAmount
+  hackedAt: string;      // was: hackedDate
+  category: string;      // was: attackVector[0]
+  subcategory: string | null;  // new
   description: string;
   priority: 'high' | 'medium' | 'low';
   lumosScore: number | null;
@@ -66,11 +67,12 @@ export async function parseCaseFromText(rawText: string): Promise<ParsedCaseData
 
   return {
     title: parsed.title ?? '',
-    protocol: parsed.protocol ?? '',
-    chain: parsed.chain ?? '',
-    hackedAmount: parsed.hackedAmount ?? 0,
-    hackedDate: parsed.hackedDate ?? '',
-    attackVector: parsed.attackVector ?? [],
+    slug: parsed.slug ?? '',
+    chains: Array.isArray(parsed.chains) ? parsed.chains : (parsed.chains ? [parsed.chains] : []),
+    amount: parsed.amount ?? 0,
+    hackedAt: parsed.hackedAt ?? '',
+    category: parsed.category ?? 'Unknown',
+    subcategory: parsed.subcategory ?? null,
     description: parsed.description ?? '',
     priority: parsed.priority ?? 'medium',
     lumosScore: parsed.lumosScore ?? null,

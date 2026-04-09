@@ -399,8 +399,8 @@ export function WeeklyPage() {
     const activeCases = cases.filter((c) => c.status !== 'closed').map((c) => ({
       title: c.title,
       priority: c.priority,
-      protocol: c.incidentData?.protocol ?? c.metadata?.protocol ?? '',
-      chain: c.incidentData?.chain ?? c.metadata?.chain ?? '',
+      protocol: c.title,
+      chain: c.incidentData?.chains?.[0] ?? c.metadata?.chain ?? '',
     }));
     fetch('/api/push-status', {
       method: 'POST',
