@@ -63,16 +63,33 @@ export async function parseCaseFromText(rawText: string): Promise<ParsedCaseData
   }
 
   const data = await res.json();
-  const parsed = data.result as ParsedCaseData;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const parsed = data.result as any;
+
+  // LLM이 레거시 필드명으로 응답할 경우 대비 폴백
+  const slug = parsed.slug || parsed.protocol || '';
+  const chains = Array.isArray(parsed.chains)
+    ? parsed.chains
+    : parsed.chain
+      ? [parsed.chain]
+      : [];
+  const amount = parsed.amount ?? parsed.hackedAmount ?? 0;
+  const hackedAt = parsed.hackedAt || parsed.hackedDate || '';
+  const category = parsed.category
+    || (Array.isArray(parsed.attackVector) ? parsed.attackVector[0] : '')
+    || 'Unknown';
+  const subcategory = parsed.subcategory
+    || (Array.isArray(parsed.attackVector) ? parsed.attackVector[1] : null)
+    || null;
 
   return {
     title: parsed.title ?? '',
-    slug: parsed.slug ?? '',
-    chains: Array.isArray(parsed.chains) ? parsed.chains : (parsed.chains ? [parsed.chains] : []),
-    amount: parsed.amount ?? 0,
-    hackedAt: parsed.hackedAt ?? '',
-    category: parsed.category ?? 'Unknown',
-    subcategory: parsed.subcategory ?? null,
+    slug,
+    chains,
+    amount,
+    hackedAt,
+    category,
+    subcategory,
     description: parsed.description ?? '',
     priority: parsed.priority ?? 'medium',
     lumosScore: parsed.lumosScore ?? null,

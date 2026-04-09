@@ -47,21 +47,25 @@ export function buildCaseParsePrompt(rawText: string): string {
 
 ## 규칙
 1. 아래 텍스트에서 보안 사고 정보를 추출하여 JSON 형식으로 반환하세요.
-2. 텍스트에서 명시적으로 언급되지 않은 필드는 빈 문자열, 0, 또는 빈 배열로 반환하세요.
+2. 텍스트에서 명시적으로 언급되지 않은 필드는 빈 문자열, 0, 빈 배열, 또는 null로 반환하세요.
 3. 추측하지 마세요 — 텍스트에 있는 정보만 사용하세요.
 4. priority는 피해금액과 공격 복잡도를 고려하여 "high", "medium", "low" 중 선택하세요.
-5. attackVector는 기술적 공격 벡터를 배열로 추출하세요 (예: Flash Loan, Reentrancy, Price Manipulation 등).
-6. description은 사건 개요를 1~2문장으로 작성하세요 (한글).
-7. hackedDate는 YYYY-MM-DD 형식으로 변환하세요.
+5. category는 대분류 공격 유형 (예: Contract Vulnerability, Flash Loan Attack, Rug Pull, Bridge Exploit).
+6. subcategory는 프로토콜 DeFi 유형 (예: Lending, DEX, Bridge, Yield). 모르면 null.
+7. slug는 "프로토콜명-연도" 형식의 고유 ID (예: euler-finance-2023). 소문자, 하이픈 구분.
+8. chains는 관련 체인 배열 (예: ["Ethereum"], ["Ethereum", "Arbitrum"]).
+9. description은 사건 개요를 1~2문장으로 작성하세요 (한글).
+10. hackedAt은 YYYY-MM-DD 형식으로 변환하세요.
 
 ## 출력 JSON 형식
 {
   "title": "사건 제목 (프로토콜명 + 공격 유형, 영문)",
-  "protocol": "프로토콜명",
-  "chain": "체인명 (Ethereum, BSC, Arbitrum 등)",
-  "hackedAmount": 피해금액(USD, 숫자만),
-  "hackedDate": "YYYY-MM-DD",
-  "attackVector": ["공격벡터1", "공격벡터2"],
+  "slug": "프로토콜명-연도 (소문자, 하이픈)",
+  "chains": ["체인명1", "체인명2"],
+  "amount": 피해금액(USD 숫자만),
+  "hackedAt": "YYYY-MM-DD",
+  "category": "대분류 공격 유형",
+  "subcategory": "DeFi 유형 또는 null",
   "description": "사건 개요 (한글, 1~2문장)",
   "priority": "high | medium | low",
   "lumosScore": null
