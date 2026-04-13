@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useNotes, useMembers, useWeekly } from '../hooks/useStore';
+import { useNotes, useMembers, useWeekly, useCases } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
 import { getWeekStartDate, toLocalDateString } from '../lib/date';
@@ -8,10 +8,20 @@ import { getWeekStartDate, toLocalDateString } from '../lib/date';
 type NoteTab = '전체' | '내 노트' | '노트' | '회의록' | '할 일';
 const TABS: NoteTab[] = ['전체', '내 노트', '노트', '회의록', '할 일'];
 
+function getWeekLabel(weekStart: string): string {
+  const start = new Date(weekStart + 'T00:00:00');
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const weekNum = Math.ceil(((start.getTime() - new Date(start.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+  return `Week ${weekNum} (${fmt(start)} ~ ${fmt(end)})`;
+}
+
 export function NotesPage() {
   const { items: notes, add } = useNotes();
   const { items: members } = useMembers();
-  const { items: weeklies } = useWeekly();
+  const { items: weeklies, add: addWeekly } = useWeekly();
+  const { items: cases } = useCases();
   const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -79,7 +89,7 @@ export function NotesPage() {
     const sections: string[] = [];
 
     // 1. 멤버별 현재 주차 한 일 정리
-    sections.push('## 📋 멤버별 한 일 정리\n');
+    sections.push('## 📋 멤버별 이번 주 한 일 정리\n');
     for (const member of draftMembers) {
       const tasks = currentWeekly?.memberTasks?.[member.id] ?? [];
       const taskLines = tasks.length > 0
@@ -100,18 +110,39 @@ export function NotesPage() {
     const title = `${now.getMonth() + 1}월 ${now.getDate()}일 멘토링`;
     const content = buildMeetingDraft();
 
-    // 현재 주차 weekly 찾기/연결 (±6일 fallback)
-    const weekStart = getWeekStartDate();
-    let currentWeekly = weeklies.find((w) => w.weekStart === weekStart);
-    if (!currentWeekly) {
-      const base = new Date(weekStart + 'T00:00:00');
-      for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
+    // 다음 주차 weekly 찾기/연결
+    // 주간 사이클: 화~월. 월요일 회의 요약은 다음 날(화요일) 시작 주차에 반영되어야 함.
+    const currentWeekStart = getWeekStartDate();
+    const nextWeekStartDate = new Date(currentWeekStart + 'T00:00:00');
+    nextWeekStartDate.setDate(nextWeekStartDate.getDate() + 7);
+    const nextWeekStart = toLocalDateString(nextWeekStartDate);
+
+    let targetWeekly = weeklies.find((w) => w.weekStart === nextWeekStart);
+    if (!targetWeekly) {
+      // ±1일 fallback 탐색
+      const base = new Date(nextWeekStart + 'T00:00:00');
+      for (const offset of [-1, 1, -2, 2]) {
         const probe = new Date(base);
         probe.setDate(probe.getDate() + offset);
         const probeStr = toLocalDateString(probe);
-        currentWeekly = weeklies.find((w) => w.weekStart === probeStr);
-        if (currentWeekly) break;
+        targetWeekly = weeklies.find((w) => w.weekStart === probeStr);
+        if (targetWeekly) break;
       }
+    }
+
+    // 다음 주차가 없으면 자동 생성 ('이번 주 시작하기'와 동일)
+    if (!targetWeekly) {
+      targetWeekly = await addWeekly({
+        weekLabel: getWeekLabel(nextWeekStart),
+        weekStart: nextWeekStart,
+        goals: [],
+        activeCaseIds: cases.filter((c) => c.status !== 'closed').map((c) => c.id),
+        memberTasks: {},
+        mentoringAgenda: '',
+        mentoringFeedback: '',
+        mentoringActionItems: [],
+        carryOver: [],
+      }) ?? undefined;
     }
 
     const newNote = await add({
@@ -120,7 +151,7 @@ export function NotesPage() {
       status: 'draft',
       authorId: currentMember.id,
       linkedCaseId: null,
-      linkedWeeklyId: currentWeekly?.id ?? null,
+      linkedWeeklyId: targetWeekly?.id ?? null,
       tags: ['회의록'],
     });
     if (newNote) navigate(`/app/notes/${newNote.id}`);

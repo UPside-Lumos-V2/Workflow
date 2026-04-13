@@ -1,0 +1,5 @@
+Audit/
+scan_pdf/
+.agent/
+.venv/
+*.pdf

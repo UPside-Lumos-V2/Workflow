@@ -4,6 +4,7 @@ import { useNotes, useCases, useWeekly, useMembers } from '../hooks/useStore';
 import { useCurrentMember } from '../hooks/useCurrentMember';
 import { useNotePresence, getMemberColor } from '../hooks/useNotePresence';
 import { summarizeMeetingNote } from '../lib/gemini';
+import { sendTelegramNotification } from '../lib/telegram';
 import { SummaryPreviewModal } from '../components/SummaryPreviewModal';
 import { BlockEditor } from '../components/BlockEditor';
 import type { MeetingSummary } from '../types';
@@ -107,13 +108,13 @@ export function NoteEditorPage() {
 
     // 1. 요약 노트 생성 (원본 유지)
     const summaryContent = [
-      edited.goals.length > 0 ? `## 🎯 이번 주 목표\n${edited.goals.map((g) => `- ${g}`).join('\n')}` : '',
+      edited.goals.length > 0 ? `## 🎯 다음 주 목표\n${edited.goals.map((g) => `- ${g}`).join('\n')}` : '',
       edited.tasks.length > 0 ? `## ✅ 할 일 목록\n${edited.tasks.map((t) => `- ${t}`).join('\n')}` : '',
       edited.mentoringFeedback ? `## 💬 멘토링 피드백\n${edited.mentoringFeedback}` : '',
       edited.carryOver.length > 0 ? `## 📦 이월 항목\n${edited.carryOver.map((c) => `- ${c}`).join('\n')}` : '',
     ].filter(Boolean).join('\n\n');
 
-    await addNote({
+    const summaryNote = await addNote({
       title: `${note.title} (요약)`,
       content: summaryContent,
       status: 'published',
@@ -171,8 +172,40 @@ export function NoteEditorPage() {
       console.warn('[요약반영] currentWeekly가 없습니다! weeklies.length=', weeklies.length);
     }
 
+    // 3. 텔레그램 그룹 알림 발송
+    const noteLink = summaryNote
+      ? `${window.location.origin}/app/notes/${summaryNote.id}`
+      : '';
+    const tgLines: string[] = [
+      '📋 *회의록 요약이 반영되었습니다*',
+      '',
+    ];
+    if (edited.goals.length > 0) {
+      tgLines.push('🎯 *다음 주 목표*');
+      edited.goals.forEach((g) => tgLines.push(`  • ${g}`));
+      tgLines.push('');
+    }
+    if (edited.tasks.length > 0) {
+      tgLines.push('✅ *할 일*');
+      edited.tasks.forEach((t) => tgLines.push(`  • ${t}`));
+      tgLines.push('');
+    }
+    if (edited.mentoringFeedback) {
+      tgLines.push('💬 *멘토링 피드백*');
+      // 너무 길면 처음 200자만
+      const fb = edited.mentoringFeedback.length > 200
+        ? edited.mentoringFeedback.slice(0, 200) + '...'
+        : edited.mentoringFeedback;
+      tgLines.push(fb);
+      tgLines.push('');
+    }
+    if (noteLink) {
+      tgLines.push(`🔗 [요약 노트 보기](${noteLink})`);
+    }
+    sendTelegramNotification(tgLines.join('\n'));
+
     setSummaryResult(null);
-    setSuccessMsg('✅ 요약 노트 생성 + 주간보드 반영 완료!');
+    setSuccessMsg('✅ 요약 노트 생성 + 주간보드 반영 + 텔레그램 알림 완료!');
     setTimeout(() => setSuccessMsg(''), 4000);
   };
 
