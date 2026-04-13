@@ -20,16 +20,20 @@ export const MEMBER_TELEGRAM_MAP: Record<string, string> = {
  */
 export function tagMembers(text: string): string {
   let result = text;
+
+  // 1단계: 웹앱 멘션 형식 "@[MemberName](uuid)" → 텔레그램 ID로 변환
+  // 예: "@[Yham](b4e896f4-...)" → "@Yunsikkkk"
+  result = result.replace(/@\[([^\]]+)\]\([^)]+\)/g, (_match, name: string) => {
+    return MEMBER_TELEGRAM_MAP[name] ?? `@${name}`;
+  });
+
+  // 2단계: 단순 "@멤버이름" 패턴 → 텔레그램 ID로 변환
   for (const [name, tgId] of Object.entries(MEMBER_TELEGRAM_MAP)) {
     // 이미 해당 텔레그램 ID가 포함되어 있으면 스킵
     if (result.includes(tgId)) continue;
 
-    // "@멤버이름" 패턴 → 텔레그램 ID로 변환
     const atPattern = new RegExp(`@${name}(?=[\\s,.)!?:;\\]|$])`, 'g');
     result = result.replace(atPattern, tgId);
-
-    // "멤버이름" 단독 사용 시에는 변환하지 않음 (의도적)
-    // 태그하고 싶을 때만 @를 붙여서 사용
   }
   return result;
 }
