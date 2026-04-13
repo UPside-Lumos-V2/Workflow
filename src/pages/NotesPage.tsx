@@ -5,8 +5,8 @@ import { useCurrentMember } from '../hooks/useCurrentMember';
 import { EmptyState } from '../components/shared';
 import { getWeekStartDate, toLocalDateString } from '../lib/date';
 
-type NoteTab = '전체' | '내 노트' | '노트' | '회의록' | '할 일';
-const TABS: NoteTab[] = ['전체', '내 노트', '노트', '회의록', '할 일'];
+type NoteTab = '이번주' | '전체' | '내 노트' | '노트' | '회의록' | '할 일';
+const TABS: NoteTab[] = ['이번주', '전체', '내 노트', '노트', '회의록', '할 일'];
 
 function getWeekLabel(weekStart: string): string {
   const start = new Date(weekStart + 'T00:00:00');
@@ -25,16 +25,42 @@ export function NotesPage() {
   const { currentMember } = useCurrentMember();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<NoteTab>('전체');
+  const [activeTab, setActiveTab] = useState<NoteTab>('이번주');
   const [page, setPage] = useState(1);
   const PER_PAGE = 10;
 
   const getMemberName = (id: string) => members.find((m) => m.id === id)?.name ?? '';
 
-  const sorted = [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  // 생성 날짜 기준 정렬 (최신순)
+  const sorted = [...notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+  // 이번 주 범위 계산 (화~월)
+  const currentWeekStart = getWeekStartDate();
+  const weekStartDate = new Date(currentWeekStart + 'T00:00:00');
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekEndDate.getDate() + 7); // 다음 화요일 00:00 (exclusive)
+
+  // 이번 주 weekly ID 목록
+  const currentWeeklyIds = new Set(
+    weeklies
+      .filter((w) => w.weekStart === currentWeekStart)
+      .map((w) => w.id)
+  );
+
+  /** 노트가 "이번주"에 해당하는지 판정 (linkedWeeklyId 우선) */
+  const isThisWeekNote = (note: typeof notes[0]): boolean => {
+    // 1순위: linkedWeeklyId가 이번 주 weekly에 해당하면 이번 주
+    if (note.linkedWeeklyId) {
+      return currentWeeklyIds.has(note.linkedWeeklyId);
+    }
+    // 2순위: linkedWeeklyId가 없으면 createdAt이 이번 주 범위인지 확인
+    const created = new Date(note.createdAt);
+    return created >= weekStartDate && created < weekEndDate;
+  };
 
   // 탭 필터
   const tabFiltered = sorted.filter((n) => {
+    if (activeTab === '이번주') return isThisWeekNote(n);
     if (activeTab === '전체') return true;
     if (activeTab === '내 노트') return n.authorId === currentMember?.id;
     if (activeTab === '회의록') return n.tags.includes('회의록');
@@ -276,7 +302,7 @@ export function NotesPage() {
                       {getMemberName(note.authorId)}
                     </span>
                     <span className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)' }}>
-                      {formatDate(note.updatedAt)}
+                      {formatDate(note.createdAt)}
                     </span>
                   </div>
                   <div className="text-secondary" style={{ fontSize: 'var(--font-size-xs)' }}>
