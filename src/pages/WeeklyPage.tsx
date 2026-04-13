@@ -631,9 +631,10 @@ export function WeeklyPage() {
                               [currentMember.id]: [...existing, { text: task.text, noteId, done: false, source: 'summary' as const }],
                             },
                           });
-                          // 텔레그램 알림
+                          // 텔레그램 알림 (@멤버이름 → 실제 텔레그램 태그로 자동 변환)
                           const memberObj = members.find((m) => m.id === currentMember.id);
-                          sendTelegramNotification(`📌 *${memberObj?.name ?? '팀원'}*에게 배정: "${task.text}"`);
+                          const mName = memberObj?.name ?? '팀원';
+                          sendTelegramNotification(`📌 @${mName} 에게 배정: "${task.text}"`);
                         }, 250);
                       }}
                       onDoubleClick={(e) => {

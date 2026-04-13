@@ -7,6 +7,21 @@ const MEMBERS = [
   'Wi11y', 'Wiimdy', 'Yham', 'Zeroluck',
 ];
 
+/** 멤버 이름 → 텔레그램 유저네임 매핑 */
+const MEMBER_TG: Record<string, string> = {
+  Erwin: '@bitcoin_vibe',
+  Ethan: '@n4mchun',
+  Omin: '@omin_00',
+  Tamaneko: '@tamaNek0',
+  Wi11y: '@luckyswilly',
+  Wiimdy: '@wiimdy',
+  Yham: '@Yunsikkkk',
+};
+
+function tgTag(name: string): string {
+  return MEMBER_TG[name] ?? name;
+}
+
 async function tgSend(
   botToken: string,
   method: string,
@@ -180,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           await tgSend(botToken, 'sendMessage', {
             chat_id: chatId,
-            text: `👤 *${memberName}* 이번 주 현황\n\n✅ 완료율: ${progress}\n\n📝 *할 일 목록:*\n${taskList}`,
+            text: `👤 *${memberName}* (${tgTag(memberName)}) 이번 주 현황\n\n✅ 완료율: ${progress}\n\n📝 *할 일 목록:*\n${taskList}`,
             parse_mode: 'Markdown',
           });
         } else {
