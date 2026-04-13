@@ -470,7 +470,7 @@ export function WeeklyPage() {
 
   // 목표 클릭 → 현재 선택된 팀원의 할 일 입력창에 prefix 설정
   const [goalPrefix, setGoalPrefix] = useState<{ memberId: string; text: string } | null>(null);
-  const [discussionTarget, setDiscussionTarget] = useState<{ text: string; memberId: string } | null>(null);
+  const [discussionTarget, setDiscussionTarget] = useState<{ text: string; memberId: string; noteId?: string } | null>(null);
 
   return (
     <div>
@@ -571,7 +571,7 @@ export function WeeklyPage() {
                       onItemClick={handleTaskClick}
                       onNoteClick={handleNoteClick}
                       onRemove={handleTaskRemove(member.id)}
-                      onDiscussionClick={(task) => setDiscussionTarget({ text: task.text, memberId: member.id })}
+                      onDiscussionClick={(task) => setDiscussionTarget({ text: task.text, memberId: member.id, noteId: task.noteId })}
                       placeholder="할 일 입력"
                       inputPrefix={goalPrefix?.memberId === member.id ? goalPrefix.text : undefined}
                       onPrefixConsumed={() => setGoalPrefix(null)}
@@ -818,6 +818,7 @@ export function WeeklyPage() {
             contextType="task"
             contextId={`${discussionTarget.memberId}-${discussionTarget.text}`}
             contextLabel={discussionTarget.text}
+            noteLink={discussionTarget.noteId ? `${window.location.origin}/app/notes/${discussionTarget.noteId}` : undefined}
           />
         </Modal>
       )}

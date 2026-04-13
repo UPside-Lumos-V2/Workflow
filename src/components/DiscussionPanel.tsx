@@ -25,9 +25,11 @@ interface DiscussionPanelProps {
   contextType: DiscussionContext;
   contextId: string;
   contextLabel: string;
+  /** 관련 노트 링크 (optional) — 텔레그램 알림에 포함 */
+  noteLink?: string;
 }
 
-export function DiscussionPanel({ contextType, contextId, contextLabel }: DiscussionPanelProps) {
+export function DiscussionPanel({ contextType, contextId, contextLabel, noteLink }: DiscussionPanelProps) {
   const { byContext, add } = useDiscussions();
   const { items: members } = useMembers();
   const { currentMember } = useCurrentMember();
@@ -76,10 +78,11 @@ export function DiscussionPanel({ contextType, contextId, contextLabel }: Discus
       parentId: replyTo,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
-    // 텔레그램 알림
+    // 텔레그램 알림 (노트 링크 포함)
     const authorName = currentMember ? members.find((m) => m.id === currentMember.id)?.name ?? '팀원' : '팀원';
     const preview = content.trim().length > 80 ? content.trim().slice(0, 80) + '...' : content.trim();
-    sendTelegramNotification(`💬 *${authorName}*가 "${contextLabel}"에 댓글:\n${preview}`);
+    const linkLine = noteLink ? `\n🔗 [노트 보기](${noteLink})` : '';
+    sendTelegramNotification(`💬 @${authorName} 가 "${contextLabel}"에 댓글:\n${preview}${linkLine}`);
     setContent('');
     setReplyTo(null);
     setAttachments([]);
