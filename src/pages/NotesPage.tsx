@@ -55,24 +55,21 @@ export function NotesPage() {
     if (newNote) navigate(`/app/notes/${newNote.id}`);
   };
 
-  /** 이전 주차 데이터를 기반으로 회의록 초안 생성 */
+  /** 현재 주차 데이터를 기반으로 회의록 초안 생성 */
   const buildMeetingDraft = (): string => {
-    // 이전 주 시작일 계산 (현재 주 화요일 - 7일)
+    // 현재 주 시작일 계산
     const currentWeekStart = getWeekStartDate();
-    const prevStart = new Date(currentWeekStart + 'T00:00:00');
-    prevStart.setDate(prevStart.getDate() - 7);
-    const prevWeekStart = toLocalDateString(prevStart);
 
-    // 이전 주차 weekly 찾기 (±6일 fallback)
-    let prevWeekly = weeklies.find((w) => w.weekStart === prevWeekStart);
-    if (!prevWeekly) {
-      const base = new Date(prevWeekStart + 'T00:00:00');
+    // 현재 주차 weekly 찾기 (±6일 fallback)
+    let currentWeekly = weeklies.find((w) => w.weekStart === currentWeekStart);
+    if (!currentWeekly) {
+      const base = new Date(currentWeekStart + 'T00:00:00');
       for (const offset of [-1, 1, -6, 6, -2, 2, -5, 5]) {
         const probe = new Date(base);
         probe.setDate(probe.getDate() + offset);
         const probeStr = toLocalDateString(probe);
-        prevWeekly = weeklies.find((w) => w.weekStart === probeStr);
-        if (prevWeekly) break;
+        currentWeekly = weeklies.find((w) => w.weekStart === probeStr);
+        if (currentWeekly) break;
       }
     }
 
@@ -81,10 +78,10 @@ export function NotesPage() {
 
     const sections: string[] = [];
 
-    // 1. 멤버별 전 주차 한 일 정리
+    // 1. 멤버별 현재 주차 한 일 정리
     sections.push('## 📋 멤버별 한 일 정리\n');
     for (const member of draftMembers) {
-      const tasks = prevWeekly?.memberTasks?.[member.id] ?? [];
+      const tasks = currentWeekly?.memberTasks?.[member.id] ?? [];
       const taskLines = tasks.length > 0
         ? tasks.map((t) => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n')
         : '- ';
