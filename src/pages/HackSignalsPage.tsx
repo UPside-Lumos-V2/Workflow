@@ -194,16 +194,17 @@ export function HackSignalsPage() {
   // Fetch signals
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     setLoading(true);
 
     const fetchData = async () => {
-      const { data: sigs } = await supabase
+      const { data: sigs } = await client
         .from('lumos_hack_signals')
         .select('*')
         .order('published_at', { ascending: false })
         .limit(100);
 
-      const { data: skips } = await supabase
+      const { data: skips } = await client
         .from('lumos_skipped_messages')
         .select('*')
         .order('skipped_at', { ascending: false })
