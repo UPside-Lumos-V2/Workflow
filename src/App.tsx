@@ -13,6 +13,7 @@ import { NotesPage } from './pages/NotesPage';
 import { NoteEditorPage } from './pages/NoteEditorPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { AnalyzerPage } from './pages/AnalyzerPage';
+import { HackSignalsPage } from './pages/HackSignalsPage';
 
 
 
@@ -40,6 +41,7 @@ function AuthenticatedApp() {
           <Route path="notes" element={<NotesPage />} />
           <Route path="notes/:id" element={<NoteEditorPage />} />
           <Route path="analyzer" element={<AnalyzerPage />} />
+          <Route path="hack-signals" element={<HackSignalsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/app" replace />} />
       </Routes>
