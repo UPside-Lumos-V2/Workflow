@@ -114,13 +114,27 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-              {signal.source_author}
+              {signal.source === 'twitter' ? '🐦' : '💬'} {signal.source_author}
             </h3>
             <span className="text-tertiary" style={{ fontSize: 12 }}>
               {new Date(signal.published_at).toLocaleString('ko-KR')}
             </span>
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {signal.source_url && (
+              <a
+                href={signal.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: 12, textDecoration: 'none', color: 'var(--color-text-secondary)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                🔗 원본 보기
+              </a>
+            )}
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          </div>
         </div>
 
         {/* 추출 필드 */}
@@ -357,7 +371,19 @@ export function HackSignalsPage() {
                     {s.chain && <ChainBadge chain={s.chain} />}
                     {s.loss_usd != null && <span style={{ color: '#C62828', fontWeight: 600 }}>💰 {formatUsd(s.loss_usd)}</span>}
                     {s.tx_hash && <span style={{ fontFamily: 'monospace', fontSize: 11 }}>🔗 {truncateHash(s.tx_hash)}</span>}
-                    <span>📡 {s.source}</span>
+                    {s.source_url ? (
+                      <a
+                        href={s.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: 'inherit', textDecoration: 'none' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        📡 {s.source} ↗
+                      </a>
+                    ) : (
+                      <span>📡 {s.source}</span>
+                    )}
                   </div>
                 </div>
               ))}
