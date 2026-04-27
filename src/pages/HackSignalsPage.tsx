@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 
 // ── Types ──
@@ -19,6 +19,9 @@ interface HackSignal {
   attacker_address: string | null;
   has_hack_keyword: boolean;
   media_urls: string[];
+  incident_group_id?: string | null;
+  confidence_score?: number | null;
+  alert_status?: string | null;
 }
 
 interface SkippedMessage {
@@ -56,6 +59,84 @@ function timeAgo(dateStr: string): string {
 function truncateHash(hash: string, len = 10): string {
   if (hash.length <= len * 2) return hash;
   return `${hash.slice(0, len)}...${hash.slice(-6)}`;
+}
+
+function MetadataCell({
+  label,
+  value,
+  missing,
+  wide = false,
+  monospace = false,
+}: {
+  label: string;
+  value: ReactNode;
+  missing: boolean;
+  wide?: boolean;
+  monospace?: boolean;
+}) {
+  return (
+    <div style={{
+      gridColumn: wide ? 'span 2' : undefined,
+      minWidth: 0,
+    }}>
+      <span className="text-tertiary" style={{ fontSize: 11 }}>{label}</span>
+      <div style={{
+        marginTop: 3,
+        minHeight: 20,
+        fontSize: monospace ? 12 : 13,
+        fontFamily: monospace ? 'monospace' : undefined,
+        fontWeight: missing ? 500 : 600,
+        color: missing ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
+        wordBreak: 'break-all',
+      }}>
+        {missing ? 'Not detected' : value}
+      </div>
+    </div>
+  );
+}
+
+function SourceBadge({ source, url }: { source: string; url?: string }) {
+  const isTwitter = source === 'twitter';
+  const label = isTwitter ? 'Twitter' : 'Telegram';
+  const bg = isTwitter ? '#0d1216ff' : '#0088CC';
+  const badge = (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 8px',
+      borderRadius: 10, background: `${bg}18`, color: bg,
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+    }}>
+      {label}
+    </span>
+  );
+  if (url) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer"
+        style={{ textDecoration: 'none' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {badge}<span style={{ fontSize: 10, color: bg, marginLeft: 2 }}>↗</span>
+      </a>
+    );
+  }
+  return badge;
+}
+
+function AlertStatusBadge({ status }: { status?: string | null }) {
+  if (!status || status === 'pending') return null;
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    alerted: { label: 'Alerted', bg: '#FFEBEE', color: '#C62828' },
+    follow_up: { label: 'Follow-up', bg: '#FFF8E1', color: '#F57F17' },
+    silent: { label: 'Silent', bg: '#F5F5F5', color: '#888' },
+  };
+  const t = map[status] || map.silent;
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, padding: '2px 6px',
+      borderRadius: 10, background: t.bg, color: t.color,
+    }}>
+      {t.label}
+    </span>
+  );
 }
 
 // ── Components ──
@@ -101,6 +182,8 @@ function TierBadge({ tier }: { tier: number }) {
 }
 
 function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => void }) {
+  const rawJson = JSON.stringify(signal, null, 2);
+
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
@@ -143,40 +226,62 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
           marginBottom: 16, padding: 12, background: 'var(--color-bg-secondary)',
           borderRadius: 8,
         }}>
-          {signal.protocol_name && (
-            <div>
-              <span className="text-tertiary" style={{ fontSize: 11 }}>Protocol</span>
-              <div style={{ fontWeight: 600 }}>{signal.protocol_name}</div>
-            </div>
-          )}
-          {signal.chain && (
-            <div>
-              <span className="text-tertiary" style={{ fontSize: 11 }}>Chain</span>
-              <div><ChainBadge chain={signal.chain} /></div>
-            </div>
-          )}
-          {signal.loss_usd != null && (
-            <div>
-              <span className="text-tertiary" style={{ fontSize: 11 }}>Loss</span>
-              <div style={{ fontWeight: 700, color: '#C62828' }}>{formatUsd(signal.loss_usd)}</div>
-            </div>
-          )}
-          {signal.tx_hash && (
-            <div>
-              <span className="text-tertiary" style={{ fontSize: 11 }}>Tx Hash</span>
-              <div style={{ fontSize: 12, fontFamily: 'monospace' }}>{truncateHash(signal.tx_hash, 16)}</div>
-            </div>
-          )}
-          {signal.attacker_address && (
-            <div style={{ gridColumn: 'span 2' }}>
-              <span className="text-tertiary" style={{ fontSize: 11 }}>Attacker</span>
-              <div style={{ fontSize: 12, fontFamily: 'monospace' }}>{signal.attacker_address}</div>
-            </div>
-          )}
+          <MetadataCell
+            label="Protocol"
+            value={signal.protocol_name}
+            missing={!signal.protocol_name}
+          />
+          <MetadataCell
+            label="Chain"
+            value={signal.chain ? <ChainBadge chain={signal.chain} /> : null}
+            missing={!signal.chain}
+          />
+          <MetadataCell
+            label="Loss"
+            value={signal.loss_usd != null ? formatUsd(signal.loss_usd) : null}
+            missing={signal.loss_usd == null}
+          />
+          <MetadataCell
+            label="Tx Hash"
+            value={signal.tx_hash ? truncateHash(signal.tx_hash, 16) : null}
+            missing={!signal.tx_hash}
+            monospace
+          />
+          <MetadataCell
+            label="Attacker"
+            value={signal.attacker_address}
+            missing={!signal.attacker_address}
+            wide
+            monospace
+          />
+          <MetadataCell
+            label="Hack Keyword"
+            value={signal.has_hack_keyword ? 'Detected' : 'Not detected'}
+            missing={!signal.has_hack_keyword}
+          />
+          <MetadataCell
+            label="Confidence"
+            value={signal.confidence_score != null ? String(signal.confidence_score) : null}
+            missing={signal.confidence_score == null}
+          />
+          <MetadataCell
+            label="Incident Group"
+            value={signal.incident_group_id}
+            missing={!signal.incident_group_id}
+            wide
+            monospace
+          />
+          <MetadataCell
+            label="Source ID"
+            value={signal.source_id}
+            missing={!signal.source_id}
+            wide
+            monospace
+          />
         </div>
 
         {/* 원문 */}
-        <div>
+        <div style={{ marginBottom: 16 }}>
           <span className="text-tertiary" style={{ fontSize: 11 }}>원문 (raw_text)</span>
           <pre style={{
             whiteSpace: 'pre-wrap', wordBreak: 'break-all',
@@ -187,6 +292,20 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
             {signal.raw_text}
           </pre>
         </div>
+
+        <details>
+          <summary className="text-tertiary" style={{ fontSize: 12, cursor: 'pointer' }}>
+            Raw signal JSON
+          </summary>
+          <pre style={{
+            whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+            fontSize: 12, lineHeight: 1.5, padding: 12,
+            background: 'var(--color-bg-secondary)', borderRadius: 8,
+            marginTop: 8, maxHeight: 260, overflow: 'auto',
+          }}>
+            {rawJson}
+          </pre>
+        </details>
       </div>
     </div>
   );
@@ -204,12 +323,12 @@ export function HackSignalsPage() {
   // Filters
   const [chainFilter, setChainFilter] = useState<string>('all');
   const [keywordOnly, setKeywordOnly] = useState(false);
+  const [alertedOnly, setAlertedOnly] = useState(false);
 
   // Fetch signals
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
-    setLoading(true);
 
     const fetchData = async () => {
       const { data: sigs } = await client
@@ -247,14 +366,18 @@ export function HackSignalsPage() {
     if (keywordOnly) {
       result = result.filter(s => s.has_hack_keyword);
     }
+    if (alertedOnly) {
+      result = result.filter(s => s.alert_status === 'alerted' || s.alert_status === 'follow_up');
+    }
     return result;
-  }, [signals, chainFilter, keywordOnly]);
+  }, [signals, chainFilter, keywordOnly, alertedOnly]);
 
   // Stats
   const stats = useMemo(() => ({
     total: signals.length,
     withKeyword: signals.filter(s => s.has_hack_keyword).length,
     withProtocol: signals.filter(s => s.protocol_name).length,
+    alertCount: signals.filter(s => s.alert_status === 'alerted' || s.alert_status === 'follow_up').length,
     skippedCount: skipped.length,
   }), [signals, skipped]);
 
@@ -272,7 +395,7 @@ export function HackSignalsPage() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
         <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>총 신호</div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>{stats.total}</div>
@@ -284,6 +407,10 @@ export function HackSignalsPage() {
         <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>프로토콜 감지</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#9F34B4' }}>{stats.withProtocol}</div>
+        </div>
+        <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
+          <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>알림 발생</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#E65100' }}>{stats.alertCount}</div>
         </div>
         <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>스킵됨</div>
@@ -325,6 +452,14 @@ export function HackSignalsPage() {
               />
               해킹 키워드만
             </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={alertedOnly}
+                onChange={(e) => setAlertedOnly(e.target.checked)}
+              />
+              알림 발생만
+            </label>
             <span className="text-tertiary" style={{ fontSize: 12, marginLeft: 'auto' }}>
               {filtered.length}건 표시
             </span>
@@ -345,7 +480,8 @@ export function HackSignalsPage() {
                   onClick={() => setSelectedSignal(s)}
                 >
                   <div className="card-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <SourceBadge source={s.source} url={s.source_url} />
                       <span className="card-title" style={{ fontSize: 14 }}>{s.source_author}</span>
                       <TierBadge tier={s.source_author_tier} />
                       {s.has_hack_keyword && (
@@ -353,9 +489,10 @@ export function HackSignalsPage() {
                           fontSize: 10, fontWeight: 700, padding: '2px 6px',
                           borderRadius: 10, background: '#FFEBEE', color: '#C62828',
                         }}>
-                          🚨 HACK
+                          HACK
                         </span>
                       )}
+                      <AlertStatusBadge status={s.alert_status} />
                     </div>
                     <span className="text-tertiary" style={{ fontSize: 11 }}>
                       {timeAgo(s.published_at)}
@@ -367,23 +504,12 @@ export function HackSignalsPage() {
                   </p>
 
                   <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    {s.protocol_name && <span>🏷️ {s.protocol_name}</span>}
-                    {s.chain && <ChainBadge chain={s.chain} />}
-                    {s.loss_usd != null && <span style={{ color: '#C62828', fontWeight: 600 }}>💰 {formatUsd(s.loss_usd)}</span>}
-                    {s.tx_hash && <span style={{ fontFamily: 'monospace', fontSize: 11 }}>🔗 {truncateHash(s.tx_hash)}</span>}
-                    {s.source_url ? (
-                      <a
-                        href={s.source_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: 'inherit', textDecoration: 'none' }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        📡 {s.source} ↗
-                      </a>
-                    ) : (
-                      <span>📡 {s.source}</span>
-                    )}
+                    <span>Protocol: {s.protocol_name || 'Not detected'}</span>
+                    <span>Chain: {s.chain ? <ChainBadge chain={s.chain} /> : 'Not detected'}</span>
+                    <span>Loss: {s.loss_usd != null ? formatUsd(s.loss_usd) : 'Not detected'}</span>
+                    <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
+                      Tx: {s.tx_hash ? truncateHash(s.tx_hash) : 'Not detected'}
+                    </span>
                   </div>
                 </div>
               ))}

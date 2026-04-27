@@ -35,3 +35,17 @@ dist-ssr
 # PDF 스캔 도구
 Audit/scan_pdf
 Audit
+
+CURRENT_SPRINT.md
+test-request.md
+test-request-*.md
+test-request-backlog.md
+test-request-next.md
+test-request-done.md
+test-request-ready.md
+test-request-progress.md
+test-request-hold.md
+test-result-*.md
+
+.agent/test-request*.md
+.agent/CURRENT_SPRINT.md
