@@ -36,6 +36,7 @@ interface SkippedMessage {
 }
 
 type TabType = 'signals' | 'skipped';
+type FilterType = 'all' | 'hack' | 'normal';
 
 // ── Helpers ──
 function formatUsd(n: number): string {
@@ -61,6 +62,65 @@ function truncateHash(hash: string, len = 10): string {
   return `${hash.slice(0, len)}...${hash.slice(-6)}`;
 }
 
+function isHackSignal(s: HackSignal): boolean {
+  return s.has_hack_keyword || s.alert_status === 'alerted' || s.alert_status === 'follow_up';
+}
+
+// ── Metadata chips: 감지된 것만 표시 ──
+function MetadataChips({ signal }: { signal: HackSignal }) {
+  const chips: ReactNode[] = [];
+
+  if (signal.loss_usd != null) {
+    chips.push(
+      <span key="loss" style={{ fontWeight: 700, color: '#DC2626' }}>
+        {formatUsd(signal.loss_usd)}
+      </span>
+    );
+  }
+  if (signal.protocol_name) {
+    chips.push(
+      <span key="protocol" style={{ fontWeight: 600 }}>
+        {signal.protocol_name}
+      </span>
+    );
+  }
+  if (signal.chain) {
+    chips.push(
+      <span key="chain" style={{ textTransform: 'capitalize' as const }}>
+        {signal.chain}
+      </span>
+    );
+  }
+  if (signal.tx_hash) {
+    chips.push(
+      <span key="tx" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+        {truncateHash(signal.tx_hash)}
+      </span>
+    );
+  }
+
+  if (chips.length === 0) return null;
+
+  return (
+    <div style={{
+      fontSize: 12,
+      color: 'var(--color-text-secondary)',
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center',
+      flexWrap: 'wrap',
+    }}>
+      {chips.map((chip, i) => (
+        <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {i > 0 && <span style={{ color: 'var(--color-border)', fontSize: 10 }}>·</span>}
+          {chip}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Detail Modal ──
 function MetadataCell({
   label,
   value,
@@ -84,104 +144,19 @@ function MetadataCell({
         marginTop: 3,
         minHeight: 20,
         fontSize: monospace ? 12 : 13,
-        fontFamily: monospace ? 'monospace' : undefined,
-        fontWeight: missing ? 500 : 600,
+        fontFamily: monospace ? 'var(--font-mono)' : undefined,
+        fontWeight: missing ? 400 : 600,
         color: missing ? 'var(--color-text-tertiary)' : 'var(--color-text-primary)',
         wordBreak: 'break-all',
       }}>
-        {missing ? 'Not detected' : value}
+        {missing ? '—' : value}
       </div>
     </div>
   );
 }
 
-function SourceBadge({ source, url }: { source: string; url?: string }) {
-  const isTwitter = source === 'twitter';
-  const label = isTwitter ? 'Twitter' : 'Telegram';
-  const bg = isTwitter ? '#0d1216ff' : '#0088CC';
-  const badge = (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 8px',
-      borderRadius: 10, background: `${bg}18`, color: bg,
-      display: 'inline-flex', alignItems: 'center', gap: 3,
-    }}>
-      {label}
-    </span>
-  );
-  if (url) {
-    return (
-      <a href={url} target="_blank" rel="noopener noreferrer"
-        style={{ textDecoration: 'none' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {badge}<span style={{ fontSize: 10, color: bg, marginLeft: 2 }}>↗</span>
-      </a>
-    );
-  }
-  return badge;
-}
-
-function AlertStatusBadge({ status }: { status?: string | null }) {
-  if (!status || status === 'pending') return null;
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    alerted: { label: 'Alerted', bg: '#FFEBEE', color: '#C62828' },
-    follow_up: { label: 'Follow-up', bg: '#FFF8E1', color: '#F57F17' },
-    silent: { label: 'Silent', bg: '#F5F5F5', color: '#888' },
-  };
-  const t = map[status] || map.silent;
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 6px',
-      borderRadius: 10, background: t.bg, color: t.color,
-    }}>
-      {t.label}
-    </span>
-  );
-}
-
-// ── Components ──
-function ChainBadge({ chain }: { chain: string }) {
-  const colors: Record<string, string> = {
-    ethereum: '#627EEA',
-    bsc: '#F3BA2F',
-    arbitrum: '#28A0F0',
-    polygon: '#8247E5',
-    optimism: '#FF0420',
-    avalanche: '#E84142',
-    base: '#0052FF',
-    solana: '#9945FF',
-    fantom: '#1969FF',
-  };
-  const bg = colors[chain] || '#888';
-  return (
-    <span style={{
-      fontSize: 11, fontWeight: 600, padding: '2px 8px',
-      borderRadius: 12, background: `${bg}18`, color: bg,
-      textTransform: 'capitalize',
-    }}>
-      {chain}
-    </span>
-  );
-}
-
-function TierBadge({ tier }: { tier: number }) {
-  const map: Record<number, { label: string; bg: string; color: string }> = {
-    1: { label: 'Tier 1', bg: '#E8F5E9', color: '#2E7D32' },
-    2: { label: 'Tier 2', bg: '#FFF8E1', color: '#F57F17' },
-    3: { label: 'Tier 3', bg: '#FFEBEE', color: '#C62828' },
-  };
-  const t = map[tier] || map[3];
-  return (
-    <span style={{
-      fontSize: 10, fontWeight: 700, padding: '2px 6px',
-      borderRadius: 10, background: t.bg, color: t.color,
-    }}>
-      {t.label}
-    </span>
-  );
-}
-
 function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => void }) {
+  const hack = isHackSignal(signal);
   const rawJson = JSON.stringify(signal, null, 2);
 
   return (
@@ -193,14 +168,27 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
       <div className="card" style={{
         maxWidth: 700, width: '90%', maxHeight: '80vh', overflow: 'auto',
         padding: 24,
+        borderLeft: hack ? '4px solid #DC2626' : undefined,
       }} onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-              {signal.source === 'twitter' ? '🐦' : '💬'} {signal.source_author}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              {hack && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '3px 8px',
+                  borderRadius: 4, background: '#DC2626', color: '#fff',
+                  letterSpacing: '0.05em',
+                }}>
+                  HACK
+                </span>
+              )}
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                {signal.source_author}
+              </h3>
+            </div>
             <span className="text-tertiary" style={{ fontSize: 12 }}>
-              {new Date(signal.published_at).toLocaleString('ko-KR')}
+              {signal.source === 'twitter' ? 'Twitter' : 'Telegram'} · Tier {signal.source_author_tier} · {new Date(signal.published_at).toLocaleString('ko-KR')}
             </span>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -210,10 +198,10 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-ghost btn-sm"
-                style={{ fontSize: 12, textDecoration: 'none', color: 'var(--color-text-secondary)' }}
+                style={{ fontSize: 12, textDecoration: 'none', color: '#3B82F6' }}
                 onClick={(e) => e.stopPropagation()}
               >
-                🔗 원본 보기
+                원본 보기 ↗
               </a>
             )}
             <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
@@ -226,58 +214,13 @@ function SignalDetail({ signal, onClose }: { signal: HackSignal; onClose: () => 
           marginBottom: 16, padding: 12, background: 'var(--color-bg-secondary)',
           borderRadius: 8,
         }}>
-          <MetadataCell
-            label="Protocol"
-            value={signal.protocol_name}
-            missing={!signal.protocol_name}
-          />
-          <MetadataCell
-            label="Chain"
-            value={signal.chain ? <ChainBadge chain={signal.chain} /> : null}
-            missing={!signal.chain}
-          />
-          <MetadataCell
-            label="Loss"
-            value={signal.loss_usd != null ? formatUsd(signal.loss_usd) : null}
-            missing={signal.loss_usd == null}
-          />
-          <MetadataCell
-            label="Tx Hash"
-            value={signal.tx_hash ? truncateHash(signal.tx_hash, 16) : null}
-            missing={!signal.tx_hash}
-            monospace
-          />
-          <MetadataCell
-            label="Attacker"
-            value={signal.attacker_address}
-            missing={!signal.attacker_address}
-            wide
-            monospace
-          />
-          <MetadataCell
-            label="Hack Keyword"
-            value={signal.has_hack_keyword ? 'Detected' : 'Not detected'}
-            missing={!signal.has_hack_keyword}
-          />
-          <MetadataCell
-            label="Confidence"
-            value={signal.confidence_score != null ? String(signal.confidence_score) : null}
-            missing={signal.confidence_score == null}
-          />
-          <MetadataCell
-            label="Incident Group"
-            value={signal.incident_group_id}
-            missing={!signal.incident_group_id}
-            wide
-            monospace
-          />
-          <MetadataCell
-            label="Source ID"
-            value={signal.source_id}
-            missing={!signal.source_id}
-            wide
-            monospace
-          />
+          <MetadataCell label="Protocol" value={signal.protocol_name} missing={!signal.protocol_name} />
+          <MetadataCell label="Chain" value={signal.chain} missing={!signal.chain} />
+          <MetadataCell label="Loss" value={signal.loss_usd != null ? formatUsd(signal.loss_usd) : null} missing={signal.loss_usd == null} />
+          <MetadataCell label="Confidence" value={signal.confidence_score != null ? String(signal.confidence_score) : null} missing={signal.confidence_score == null} />
+          <MetadataCell label="Tx Hash" value={signal.tx_hash ? truncateHash(signal.tx_hash, 16) : null} missing={!signal.tx_hash} wide monospace />
+          <MetadataCell label="Attacker" value={signal.attacker_address} missing={!signal.attacker_address} wide monospace />
+          <MetadataCell label="Incident Group" value={signal.incident_group_id} missing={!signal.incident_group_id} wide monospace />
         </div>
 
         {/* 원문 */}
@@ -319,11 +262,7 @@ export function HackSignalsPage() {
   const [skipped, setSkipped] = useState<SkippedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSignal, setSelectedSignal] = useState<HackSignal | null>(null);
-
-  // Filters
-  const [chainFilter, setChainFilter] = useState<string>('all');
-  const [keywordOnly, setKeywordOnly] = useState(false);
-  const [alertedOnly, setAlertedOnly] = useState(false);
+  const [filter, setFilter] = useState<FilterType>('all');
 
   // Fetch signals
   useEffect(() => {
@@ -351,33 +290,17 @@ export function HackSignalsPage() {
     fetchData();
   }, []);
 
-  // Unique chains for filter
-  const chains = useMemo(() => {
-    const set = new Set(signals.map(s => s.chain).filter(Boolean) as string[]);
-    return ['all', ...Array.from(set).sort()];
-  }, [signals]);
-
   // Filtered signals
   const filtered = useMemo(() => {
-    let result = signals;
-    if (chainFilter !== 'all') {
-      result = result.filter(s => s.chain === chainFilter);
-    }
-    if (keywordOnly) {
-      result = result.filter(s => s.has_hack_keyword);
-    }
-    if (alertedOnly) {
-      result = result.filter(s => s.alert_status === 'alerted' || s.alert_status === 'follow_up');
-    }
-    return result;
-  }, [signals, chainFilter, keywordOnly, alertedOnly]);
+    if (filter === 'hack') return signals.filter(isHackSignal);
+    if (filter === 'normal') return signals.filter(s => !isHackSignal(s));
+    return signals;
+  }, [signals, filter]);
 
-  // Stats
+  // Stats (3개만)
   const stats = useMemo(() => ({
     total: signals.length,
-    withKeyword: signals.filter(s => s.has_hack_keyword).length,
-    withProtocol: signals.filter(s => s.protocol_name).length,
-    alertCount: signals.filter(s => s.alert_status === 'alerted' || s.alert_status === 'follow_up').length,
+    hack: signals.filter(isHackSignal).length,
     skippedCount: skipped.length,
   }), [signals, skipped]);
 
@@ -394,27 +317,22 @@ export function HackSignalsPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 20 }}>
+      {/* Stats — 3개 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>총 신호</div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>{stats.total}</div>
         </div>
-        <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
-          <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>해킹 키워드</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#C62828' }}>{stats.withKeyword}</div>
-        </div>
-        <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
-          <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>프로토콜 감지</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#9F34B4' }}>{stats.withProtocol}</div>
-        </div>
-        <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
-          <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>알림 발생</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#E65100' }}>{stats.alertCount}</div>
+        <div className="card" style={{
+          padding: '14px 16px', textAlign: 'center',
+          borderLeft: '3px solid #DC2626',
+        }}>
+          <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>HACK 감지</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#DC2626' }}>{stats.hack}</div>
         </div>
         <div className="card" style={{ padding: '14px 16px', textAlign: 'center' }}>
           <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', marginBottom: 4 }}>스킵됨</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#888' }}>{stats.skippedCount}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--color-text-tertiary)' }}>{stats.skippedCount}</div>
         </div>
       </div>
 
@@ -430,38 +348,33 @@ export function HackSignalsPage() {
 
       {tab === 'signals' && (
         <>
-          {/* Filters */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <select
-              value={chainFilter}
-              onChange={(e) => setChainFilter(e.target.value)}
-              style={{
-                padding: '6px 12px', borderRadius: 8, border: '1px solid var(--color-border)',
-                fontSize: 13, background: 'var(--color-bg-primary)',
-              }}
-            >
-              {chains.map(c => (
-                <option key={c} value={c}>{c === 'all' ? '전체 체인' : c}</option>
-              ))}
-            </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={keywordOnly}
-                onChange={(e) => setKeywordOnly(e.target.checked)}
-              />
-              해킹 키워드만
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={alertedOnly}
-                onChange={(e) => setAlertedOnly(e.target.checked)}
-              />
-              알림 발생만
-            </label>
+          {/* Filter: All / HACK / Normal */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center' }}>
+            {(['all', 'hack', 'normal'] as FilterType[]).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '5px 14px',
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontWeight: filter === f ? 700 : 500,
+                  background: filter === f
+                    ? (f === 'hack' ? '#DC2626' : 'var(--color-accent)')
+                    : 'var(--color-bg-secondary)',
+                  color: filter === f
+                    ? '#fff'
+                    : 'var(--color-text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                }}
+              >
+                {f === 'all' ? '전체' : f === 'hack' ? 'HACK' : '일반'}
+              </button>
+            ))}
             <span className="text-tertiary" style={{ fontSize: 12, marginLeft: 'auto' }}>
-              {filtered.length}건 표시
+              {filtered.length}건
             </span>
           </div>
 
@@ -471,48 +384,90 @@ export function HackSignalsPage() {
               <p className="text-secondary">아직 감지된 신호가 없습니다</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {filtered.map((s) => (
-                <div
-                  key={s.id}
-                  className="card"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setSelectedSignal(s)}
-                >
-                  <div className="card-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <SourceBadge source={s.source} url={s.source_url} />
-                      <span className="card-title" style={{ fontSize: 14 }}>{s.source_author}</span>
-                      <TierBadge tier={s.source_author_tier} />
-                      {s.has_hack_keyword && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, padding: '2px 6px',
-                          borderRadius: 10, background: '#FFEBEE', color: '#C62828',
-                        }}>
-                          HACK
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {filtered.map((s) => {
+                const hack = isHackSignal(s);
+                return (
+                  <div
+                    key={s.id}
+                    className="card"
+                    style={{
+                      cursor: 'pointer',
+                      borderLeft: hack ? '3px solid #DC2626' : undefined,
+                      background: hack ? '#FEF2F2' : undefined,
+                      transition: 'box-shadow 150ms ease',
+                    }}
+                    onClick={() => setSelectedSignal(s)}
+                  >
+                    {/* Row 1: header */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 6,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {hack && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: '#DC2626',
+                          }}>
+                            <span style={{
+                              width: 6, height: 6, borderRadius: '50%',
+                              background: '#DC2626', display: 'inline-block',
+                            }} />
+                            HACK
+                          </span>
+                        )}
+                        {s.source_url ? (
+                          <a
+                            href={s.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              fontSize: 13, fontWeight: 600,
+                              color: 'var(--color-text-primary)',
+                              textDecoration: 'none',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {s.source_author} <span style={{ fontSize: 10, color: '#3B82F6' }}>↗</span>
+                          </a>
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{s.source_author}</span>
+                        )}
+                        <span className="text-tertiary" style={{ fontSize: 11 }}>
+                          · Tier {s.source_author_tier} · {s.source === 'twitter' ? 'Twitter' : 'Telegram'}
                         </span>
-                      )}
-                      <AlertStatusBadge status={s.alert_status} />
+                      </div>
+                      <span className="text-tertiary" style={{ fontSize: 11, flexShrink: 0 }}>
+                        {timeAgo(s.published_at)}
+                      </span>
                     </div>
-                    <span className="text-tertiary" style={{ fontSize: 11 }}>
-                      {timeAgo(s.published_at)}
-                    </span>
-                  </div>
 
-                  <p className="text-secondary" style={{ fontSize: 'var(--font-size-sm)', marginBottom: 8 }}>
-                    {s.raw_text.slice(0, 150)}{s.raw_text.length > 150 ? '...' : ''}
-                  </p>
+                    {/* Row 2: raw text */}
+                    <p style={{
+                      fontSize: 13,
+                      color: 'var(--color-text-secondary)',
+                      marginBottom: 6,
+                      lineHeight: 1.5,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical' as const,
+                      overflow: 'hidden',
+                    }}>
+                      {s.raw_text.slice(0, 200)}
+                    </p>
 
-                  <div className="text-tertiary" style={{ fontSize: 'var(--font-size-xs)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <span>Protocol: {s.protocol_name || 'Not detected'}</span>
-                    <span>Chain: {s.chain ? <ChainBadge chain={s.chain} /> : 'Not detected'}</span>
-                    <span>Loss: {s.loss_usd != null ? formatUsd(s.loss_usd) : 'Not detected'}</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11 }}>
-                      Tx: {s.tx_hash ? truncateHash(s.tx_hash) : 'Not detected'}
-                    </span>
+                    {/* Row 3: metadata chips */}
+                    <MetadataChips signal={s} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
@@ -530,8 +485,9 @@ export function HackSignalsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '2px 8px',
-                      borderRadius: 10, background: '#F5F5F5', color: '#888',
+                      fontSize: 10, fontWeight: 600, padding: '2px 8px',
+                      borderRadius: 4, background: 'var(--color-bg-tertiary)',
+                      color: 'var(--color-text-tertiary)',
                     }}>
                       {s.skip_reason}
                     </span>
