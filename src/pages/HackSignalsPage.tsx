@@ -22,6 +22,11 @@ interface HackSignal {
   incident_group_id?: string | null;
   confidence_score?: number | null;
   alert_status?: string | null;
+  // Gemini LLM 분류 결과
+  llm_is_hack?: boolean | null;
+  llm_confidence?: number | null;
+  llm_category?: string | null;
+  llm_summary?: string | null;
 }
 
 interface SkippedMessage {
@@ -63,6 +68,8 @@ function truncateHash(hash: string, len = 10): string {
 }
 
 function isHackSignal(s: HackSignal): boolean {
+  // LLM 판정 우선, fallback으로 키워드 + alert_status
+  if (s.llm_is_hack != null) return s.llm_is_hack;
   return s.has_hack_keyword || s.alert_status === 'alerted' || s.alert_status === 'follow_up';
 }
 
