@@ -165,10 +165,36 @@ function needsHackReview(s: HackSignal): boolean {
   return s.llm_is_hack === true || s.has_hack_keyword || s.alert_status === 'ambiguous' || s.alert_status === 'quarantined';
 }
 
+function getMatchedOtherContext(s: HackSignal): string | null {
+  const text = signalText(s);
+  const CONTEXT_LABELS: Record<string, string> = {
+    'bounty': '바운티', 'returned': '자금 반환', 'whitehat': '화이트햇',
+    'white hat': '화이트햇', 'onchain message': '온체인 메시지', 'fund return': '자금 반환',
+    'post-mortem': '사후분석', 'retrospective': '회고', 'case study': '사례 연구',
+    'newsletter': '뉴스레터', 'educational': '교육 콘텐츠', 'staking': '스테이킹',
+    'etf': 'ETF 뉴스', 'whale': '고래 동향', 'airdrop': '에어드롭',
+    'testnet': '테스트넷', 'simulation': '시뮬레이션', 'hypothetical': '가정/추측',
+  };
+  for (const [term, label] of Object.entries(CONTEXT_LABELS)) {
+    if (text.includes(term)) return label;
+  }
+  return null;
+}
+
 function getWhyFlagged(signal: HackSignal): string[] {
   const reasons: string[] = [];
+  const otherCtx = getMatchedOtherContext(signal);
+  const isActionable = isActionableHackIncident(signal);
+
   if (signal.llm_is_hack === true) reasons.push(`LLM hack 판정${signal.llm_category ? ` (${signal.llm_category})` : ''}`);
-  if (signal.has_hack_keyword) reasons.push('해킹 키워드 감지');
+  if (signal.llm_is_hack === false) reasons.push('LLM: 해킹 아님');
+
+  if (otherCtx && !isActionable) {
+    reasons.push(`컨텍스트: ${otherCtx}`);
+  } else if (signal.has_hack_keyword) {
+    reasons.push('해킹 키워드 감지');
+  }
+
   if (signal.alert_status === 'alerted' || signal.alert_status === 'follow_up') reasons.push(`alert_status=${signal.alert_status}`);
   if (signal.alert_status === 'ambiguous' || signal.alert_status === 'quarantined') reasons.push(`alert_status=${signal.alert_status}`);
   if (signal.source_author_tier === 1) reasons.push('Tier 1 소스');
